@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -69,9 +71,10 @@ jobs:
 
       - name: Create tarball
         run: |
+          VERSION=${{ github.ref_name }}
           cd target/${{ matrix.target }}/release
-          tar czf ${{ matrix.asset_name }}-${{ github.ref_name }}.tar.gz ${{ matrix.artifact_name }}
-          mv ${{ matrix.asset_name }}-${{ github.ref_name }}.tar.gz ../../..
+          tar czf ${{ matrix.asset_name }}-${VERSION}.tar.gz ${{ matrix.artifact_name }}
+          mv ${{ matrix.asset_name }}-${VERSION}.tar.gz ../../..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -83,6 +86,7 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
 
