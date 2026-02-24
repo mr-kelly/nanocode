@@ -9,9 +9,20 @@ prompt → LLM → run_cmd / write_file → observe → repeat
 ## Install
 
 ```bash
+# Quick install (Linux/macOS)
+curl -fsSL https://raw.githubusercontent.com/mr-kelly/nanocode/main/install.sh | bash
+```
+
+```bash
+# Homebrew (macOS/Linux)
+brew tap mr-kelly/tap
+brew install nanocode
+```
+
+Or build from source:
+
+```bash
 cargo install --path .
-# or build manually
-cargo build --release && cp target/release/nanocode ~/.local/bin/
 ```
 
 ## Usage
