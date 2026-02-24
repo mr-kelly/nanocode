@@ -1,0 +1,2 @@
+Add a function is_palindrome(s: str) -> bool to utils.py.
+It should return True if s is a palindrome (case-insensitive, ignore spaces).

@@ -1,0 +1,2 @@
+Create a file data.json containing a JSON array of 5 objects, each with fields "id" (int) and "name" (string).
+Then write a Python script read_data.py that reads data.json and prints the name of the item with id=3.

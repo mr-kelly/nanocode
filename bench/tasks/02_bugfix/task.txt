@@ -1,0 +1,1 @@
+The file buggy.py has a bug. Find it and fix it. Do not rewrite the whole file — only fix the bug.

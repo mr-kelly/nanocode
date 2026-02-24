@@ -1,0 +1,6 @@
+Write a Python file solution.py with a function fizzbuzz(n) that returns a list of strings:
+- "FizzBuzz" if divisible by both 3 and 5
+- "Fizz" if divisible by 3
+- "Buzz" if divisible by 5
+- the number as string otherwise
+for numbers 1..n inclusive.
