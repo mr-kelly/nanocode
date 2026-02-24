@@ -2,8 +2,6 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
     branches:
       - main
   workflow_dispatch:
@@ -12,8 +10,30 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    name: Prepare Version and Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute version/tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.target }}
+    needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -71,24 +91,43 @@ jobs:
 
       - name: Create tarball
         run: |
-          VERSION=${{ github.ref_name }}
+          TAG="${{ needs.prepare.outputs.tag }}"
           cd target/${{ matrix.target }}/release
-          tar czf ${{ matrix.asset_name }}-${VERSION}.tar.gz ${{ matrix.artifact_name }}
-          mv ${{ matrix.asset_name }}-${VERSION}.tar.gz ../../..
+          tar czf ${{ matrix.asset_name }}-${TAG}.tar.gz ${{ matrix.artifact_name }}
+          mv ${{ matrix.asset_name }}-${TAG}.tar.gz ../../..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_name }}
-          path: ${{ matrix.asset_name }}-${{ github.ref_name }}.tar.gz
+          path: ${{ matrix.asset_name }}-${{ needs.prepare.outputs.tag }}.tar.gz
 
   release:
-    name: Create Release
-    needs: build
+    name: Tag and Create Release
+    needs: [prepare, build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag not already published
+        shell: bash
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists — bump version in Cargo.toml to publish a new release."
+            exit 1
+          fi
+
+      - name: Create and push tag
+        shell: bash
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -107,6 +146,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: |
             artifacts/*/*.tar.gz
             artifacts/checksums.txt
@@ -124,8 +165,7 @@ jobs:
             brew install nanocode
             ```
 
-            ### Manual Installation
-            Download the appropriate binary for your platform and extract it:
+            ### Manual
             ```bash
             tar xzf nanocode-*.tar.gz
             sudo mv nanocode /usr/local/bin/
