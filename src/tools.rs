@@ -19,7 +19,7 @@ pub fn write_file(cwd: &PathBuf, path: &str, content: &str) -> Result<String> {
     if full.exists() {
         let existing = fs::read_to_string(&full).unwrap_or_default();
         let lines = existing.lines().count();
-        if lines > 150 {
+        if lines > 300 {
             return Ok(format!(
                 "ERROR: {} has {} lines. Use apply_patch for targeted edits instead of rewriting the whole file.",
                 path, lines

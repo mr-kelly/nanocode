@@ -1,2 +1,7 @@
 /target
 /logs
+
+# SWE-bench artifacts
+bench/swe_bench/*.jsonl
+bench/swe_bench/inference.log
+logs/

@@ -134,9 +134,12 @@ pub async fn run(cwd: &PathBuf, task: &str) -> Result<()> {
 
         if reply.contains("<done>") {
             if !files_changed {
-                // model tried to finish without making any changes — push back
                 messages.push(ChatMessage::assistant(&reply));
-                messages.push(ChatMessage::user("<result>You called <done> without making any file changes. You MUST apply a fix using apply_patch or write_file before finishing.</result>"));
+                messages.push(ChatMessage::user(
+                    "<result>You called <done> without making any file changes. \
+                    You MUST apply a fix first. Use apply_patch for a targeted diff, \
+                    or if apply_patch keeps failing, use write_file to rewrite the specific function/section.</result>"
+                ));
                 turn += 1;
                 continue;
             }

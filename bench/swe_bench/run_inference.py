@@ -10,7 +10,7 @@ Usage:
 import argparse, json, os, subprocess, sys, tempfile
 from pathlib import Path
 
-NANOCODE = str(Path(__file__).parent.parent / "target" / "debug" / "nanocode")
+NANOCODE = str(Path(__file__).parent.parent.parent / "target" / "debug" / "nanocode")
 
 def run_instance(instance: dict, tmpdir: str) -> dict | None:
     repo_url = f"https://github.com/{instance['repo']}.git"
@@ -104,11 +104,12 @@ def main():
                 print(f"  ERROR: {e}")
 
     print(f"\nDone. Predictions in {args.out}")
-    print("Evaluate with:")
-    print(f"  python -m swebench.harness.run_evaluation \\")
+    print("Evaluate with (run from project root):")
+    print(f"  python3.12 -m swebench.harness.run_evaluation \\")
     print(f"    --dataset_name princeton-nlp/SWE-bench_Lite \\")
     print(f"    --predictions_path {args.out} \\")
     print(f"    --max_workers 4 \\")
+    print(f"    --report_dir logs/swe_bench \\")
     print(f"    --run_id nanocode_run1")
 
 

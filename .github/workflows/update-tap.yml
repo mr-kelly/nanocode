@@ -1,0 +1,99 @@
+name: Update Homebrew Tap
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update_tap:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Formula
+        id: gen_formula
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          OWNER="${{ github.repository_owner }}"
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          CHECKSUMS_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/checksums.txt"
+
+          curl -fsSL "$CHECKSUMS_URL" -o checksums.txt
+
+          LINUX_ARM_FILE="nanocode-linux-aarch64-${TAG}.tar.gz"
+          LINUX_X86_FILE="nanocode-linux-x86_64-${TAG}.tar.gz"
+          MACOS_ARM_FILE="nanocode-macos-aarch64-${TAG}.tar.gz"
+          MACOS_X86_FILE="nanocode-macos-x86_64-${TAG}.tar.gz"
+
+          LINUX_ARM_SHA=$(awk -v f="$LINUX_ARM_FILE" '$2==f {print $1}' checksums.txt)
+          LINUX_X86_SHA=$(awk -v f="$LINUX_X86_FILE" '$2==f {print $1}' checksums.txt)
+          MACOS_ARM_SHA=$(awk -v f="$MACOS_ARM_FILE" '$2==f {print $1}' checksums.txt)
+          MACOS_X86_SHA=$(awk -v f="$MACOS_X86_FILE" '$2==f {print $1}' checksums.txt)
+
+          mkdir -p tap-work/Formula
+          cat > tap-work/Formula/nanocode.rb <<EOF
+          class Nanocode < Formula
+            desc "Minimal autonomous coding agent in Rust"
+            homepage "https://github.com/${OWNER}/nanocode"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${MACOS_ARM_FILE}"
+                sha256 "${MACOS_ARM_SHA}"
+              else
+                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${MACOS_X86_FILE}"
+                sha256 "${MACOS_X86_SHA}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${LINUX_ARM_FILE}"
+                sha256 "${LINUX_ARM_SHA}"
+              else
+                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${LINUX_X86_FILE}"
+                sha256 "${LINUX_X86_SHA}"
+              end
+            end
+
+            def install
+              bin.install "nanocode"
+            end
+
+            test do
+              assert_match "nanocode", shell_output("#{bin}/nanocode --version")
+            end
+          end
+          EOF
+
+      - name: Push to tap repo
+        shell: bash
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          OWNER="${{ github.repository_owner }}"
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${OWNER}/homebrew-tap.git" tap-repo
+          mkdir -p tap-repo/Formula
+          cp tap-work/Formula/nanocode.rb tap-repo/Formula/nanocode.rb
+
+          cd tap-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- Formula/nanocode.rb; then
+            echo "No changes detected"
+            exit 0
+          fi
+
+          git add Formula/nanocode.rb
+          git commit -m "nanocode ${VERSION}"
+          git push origin HEAD:main
