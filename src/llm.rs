@@ -17,9 +17,9 @@ const DANGEROUS: &[&str] = &[
     "curl | sh", "wget | sh", "bash <(",
 ];
 
-const MAX_OUTPUT: usize = 8000;
+const MAX_OUTPUT: usize = 32000;
 const MAX_TURNS:  usize = 40;
-const COMPRESS_AFTER: usize = 10;
+const COMPRESS_AFTER: usize = 20;
 
 const SYSTEM: &str = "\
 You are Freecode — a fast, autonomous terminal agent.
@@ -57,8 +57,9 @@ STRATEGY:
 4. Use apply_patch for targeted edits. Use write_file for new files or full rewrites.
 5. Never use shell heredocs or echo redirects for multi-line content.
 6. If a command fails, diagnose and retry.
-7. IMPORTANT: You MUST make at least one file change (apply_patch or write_file) before calling <done>.
-8. When done: <done>concise summary</done>
+7. When given a URL to install something, try `curl -fsSL <url>/install.sh | bash` first, or check `<url>/install.sh` for install instructions.
+8. IMPORTANT: You MUST make at least one file change (apply_patch or write_file) before calling <done>.
+9. When done: <done>concise summary</done>
 
 OUTPUT: one tool call only. Nothing else. No markdown.
 ";
@@ -200,6 +201,12 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
     let requires_file_change = ["fix", "refactor", "add", "implement", "create", "write", "edit", "update", "patch"]
         .iter().any(|w| task.to_lowercase().contains(w));
 
+    eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
+    eprintln!("DEBUG: requires_file_change={}", requires_file_change);
+
+    eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
+    eprintln!("DEBUG: requires_file_change={}", requires_file_change);
+
     loop {
         if turn >= MAX_TURNS { eprintln!("(max turns reached)"); break; }
 
@@ -234,7 +241,8 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
                 .to_string();
             let label = format!("write_file {path}");
             let dangerous = DANGEROUS.iter().any(|d| path.contains(d));
-            if dangerous {
+            let no_confirm = env::var("FREECODE_NO_CONFIRM").is_ok() || env::var("NANOCODE_NO_CONFIRM").is_ok();
+            if dangerous && !no_confirm {
                 eprint!("\n  ⚠ {label}  [y/N] ");
                 std::io::stderr().flush()?;
                 let mut inp = String::new();
@@ -261,7 +269,8 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
             r
         } else if let Some(cmd) = extract_attr(&reply, "run_cmd", "cmd") {
             let dangerous = DANGEROUS.iter().any(|d| cmd.contains(d));
-            if dangerous {
+            let no_confirm = env::var("FREECODE_NO_CONFIRM").is_ok() || env::var("NANOCODE_NO_CONFIRM").is_ok();
+            if dangerous && !no_confirm {
                 eprint!("\n  ⚠ $ {cmd}  [y/N] ");
                 std::io::stderr().flush()?;
                 let mut inp = String::new();

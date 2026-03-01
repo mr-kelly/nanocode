@@ -10,7 +10,7 @@ Usage:
 import argparse, json, os, subprocess, sys, tempfile
 from pathlib import Path
 
-NANOCODE = str(Path(__file__).parent.parent.parent / "target" / "debug" / "nanocode")
+NANOCODE = str(Path(__file__).parent.parent.parent / "target" / "debug" / "freecode")
 
 def run_instance(instance: dict, tmpdir: str) -> dict | None:
     repo_url = f"https://github.com/{instance['repo']}.git"
@@ -43,7 +43,7 @@ def run_instance(instance: dict, tmpdir: str) -> dict | None:
         f"- When done, call <done>description of fix</done>"
     )
     env = {**os.environ, "NANOCODE_NO_CONFIRM": "1"}
-    subprocess.run([NANOCODE, prompt], cwd=repo_dir, env=env, timeout=300)
+    subprocess.run([NANOCODE, prompt], cwd=repo_dir, env=env, timeout=900)
 
     # Capture diff
     diff = subprocess.run(
