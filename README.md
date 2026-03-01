@@ -48,6 +48,38 @@ echo '{"prompt": "fix the bug", "cwd": "./myproject"}' | freecode
 
 ---
 
+## Use cases
+
+**Coding tasks**
+```bash
+freecode "fix the failing tests in src/"
+freecode "add pagination to the /users endpoint"
+freecode "find and fix the memory leak in worker.go"
+```
+
+**Server ops** — no need to remember exact commands
+```bash
+freecode "show me the top 10 processes by memory usage"
+freecode "find all log files larger than 100MB and show their paths"
+freecode "check which port 8080 process is running and kill it"
+```
+
+**Quick setup** — great on a fresh machine before installing anything else
+```bash
+freecode "install nvm and set up Node 20"
+freecode "set up a Python virtualenv and install requirements.txt"
+freecode "configure nginx to reverse proxy localhost:3000"
+```
+
+**File & data tasks**
+```bash
+freecode "convert all .png files in this folder to .jpg"
+freecode "parse access.log and show me the top 10 IPs by request count"
+freecode "rename all files to lowercase"
+```
+
+---
+
 ## How the free model works
 
 freecode has no hardcoded model. On every run, it fetches the **real-time popularity ranking** from OpenRouter and picks the #1 free model by weekly usage across all users.
