@@ -7,15 +7,6 @@ use genai::{
 use std::{env, io::Write, path::PathBuf};
 use crate::tools;
 
-const PROVIDERS: &[(&str, &str)] = &[
-    ("OPENAI_API_KEY",    "gpt-5.2"),
-    ("ANTHROPIC_API_KEY", "claude-sonnet-4.6"),
-    ("GEMINI_API_KEY",    "gemini-3.0-flash"),
-    ("GROQ_API_KEY",      "llama-3.1-8b-instant"),
-    ("DEEPSEEK_API_KEY",  "deepseek-chat"),
-    ("XAI_API_KEY",       "grok-beta"),
-];
-
 const DANGEROUS: &[&str] = &[
     "rm ", "rm\t", ":(){:|:&};:",
     "sudo ", "su ",
@@ -71,7 +62,7 @@ STRATEGY:
 OUTPUT: one tool call only. Nothing else. No markdown.
 ";
 
-const OPENROUTER_KEY: &str = "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"
+const OPENROUTER_KEY: &str = "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";
 
 fn openrouter_key() -> String {
     env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| OPENROUTER_KEY.to_string())
@@ -130,7 +121,7 @@ pub async fn list_free_models() -> Result<()> {
 
 /// Returns ordered list of models to try (first = best).
 pub async fn resolve_models() -> Result<Vec<String>> {
-    if let Ok(m) = env::var("FREECODE_MODEL").or_else(|_| env::var("NANOCODE_MODEL")).or_else(|_| env::var("OPENAI_MODEL")) {
+    if let Ok(m) = env::var("FREECODE_MODEL") {
         return Ok(vec![m]);
     }
     eprintln!("  🔍 Fetching free models from OpenRouter...");
@@ -142,18 +133,14 @@ pub async fn resolve_models() -> Result<Vec<String>> {
         Ok(_) => eprintln!("  ⚠ No free models found"),
         Err(e) => eprintln!("  ⚠ OpenRouter fetch failed: {e}"),
     }
-    for (k, model) in PROVIDERS {
-        if env::var(k).is_ok() { return Ok(vec![model.to_string()]); }
-    }
-    Err(anyhow!("No provider configured. Set one of: {}", PROVIDERS.iter().map(|(k,_)| *k).collect::<Vec<_>>().join(", ")))
+    Err(anyhow!("Could not fetch free models from OpenRouter. Set FREECODE_MODEL to override."))
 }
 
 fn make_client() -> Client {
-    let base_url = "https://openrouter.ai/api/v1";
     let key = openrouter_key();
     Client::builder()
         .with_service_target_resolver_fn(move |mut st: ServiceTarget| {
-            st.endpoint = Endpoint::from_owned(format!("{}/", base_url.trim_end_matches('/')));
+            st.endpoint = Endpoint::from_owned("https://openrouter.ai/api/v1/");
             st.auth = AuthData::from_single(key.clone());
             Ok(st)
         })

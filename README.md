@@ -126,12 +126,7 @@ To use your own key or a paid model:
 
 ```bash
 export OPENROUTER_API_KEY="sk-or-v1-..."   # your own OpenRouter key
-export FREECODE_MODEL="claude-opus-4"       # pin a specific model
-
-# or use a different provider entirely
-export OPENAI_API_KEY="..."                 # → gpt-5.2
-export ANTHROPIC_API_KEY="..."             # → claude-sonnet-4.6
-export GEMINI_API_KEY="..."                # → gemini-3.0-flash
+export FREECODE_MODEL="claude-opus-4"       # pin any model available on OpenRouter
 ```
 
 ---
