@@ -347,7 +347,7 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             let new = extract_tag_content(&reply, "new").unwrap_or("");
             eprintln!("  ⊕ replace in {}", path);
             let r = tools::replace(cwd, &path, old, new)?;
-            log_cmd(cwd, &format!("replace in {}", path), &r);
+            log_cmd(cwd, &format!("replace in {}\n<old>\n{}\n</old>\n<new>\n{}\n</new>", path, old, new), &r);
             if !r.starts_with("ERROR") {
                 files_changed = true;
             }

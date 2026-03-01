@@ -91,7 +91,9 @@ def main():
                 done.add(json.loads(line)["instance_id"])
         print(f"  ({len(done)} already done, skipping)")
 
-    with open(args.out, "a") as out_f, tempfile.TemporaryDirectory() as tmpdir:
+    with open(args.out, "a") as out_f, open("/dev/null") as _dummy:
+        tmpdir = "/tmp/freecode_test_dir"
+        os.makedirs(tmpdir, exist_ok=True)
         for inst in instances:
             if inst["instance_id"] in done:
                 continue
