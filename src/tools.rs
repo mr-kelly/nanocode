@@ -129,6 +129,9 @@ pub fn replace(cwd: &PathBuf, path: &str, old: &str, new: &str) -> Result<String
     }
 
     let new_content = content.replacen(old, new, 1);
+    if content == new_content {
+        return Ok(format!("ERROR: Replacement resulted in no changes to {}. The <new> block is identical to the <old> block.", path));
+    }
     fs::write(&full, new_content)?;
     Ok(format!("replaced exact match in {}", path))
 }

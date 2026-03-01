@@ -338,7 +338,9 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             }
             let r = tools::write_file(cwd, &path, &content)?;
             log_cmd(cwd, &label, &r);
-            files_changed = true;
+            if !r.starts_with("ERROR") {
+                files_changed = true;
+            }
             r
         } else if let Some(path) = extract_attr(&reply, "replace", "path") {
             let old = extract_tag_content(&reply, "old").unwrap_or("");
@@ -346,7 +348,9 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             eprintln!("  ⊕ replace in {}", path);
             let r = tools::replace(cwd, &path, old, new)?;
             log_cmd(cwd, &format!("replace in {}", path), &r);
-            files_changed = true;
+            if !r.starts_with("ERROR") {
+                files_changed = true;
+            }
             r
         } else if let Some(cmd) = extract_attr(&reply, "run_cmd", "cmd") {
             let dangerous = DANGEROUS.iter().any(|d| cmd.contains(d));
