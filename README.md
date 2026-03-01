@@ -120,11 +120,18 @@ Tested with `arcee-ai/trinity-large-preview:free` (top free model on OpenRouter 
 
 ## Override model or provider
 
+By default, freecode uses a built-in OpenRouter key that only works with free models — no setup needed.
+
+To use your own key or a paid model:
+
 ```bash
-export FREECODE_MODEL=claude-opus-4          # any model
-export OPENAI_API_KEY="..."                  # gpt-5.2
-export ANTHROPIC_API_KEY="..."               # claude-sonnet-4.6
-export GEMINI_API_KEY="..."                  # gemini-3.0-flash
+export OPENROUTER_API_KEY="sk-or-v1-..."   # your own OpenRouter key
+export FREECODE_MODEL="claude-opus-4"       # pin a specific model
+
+# or use a different provider entirely
+export OPENAI_API_KEY="..."                 # → gpt-5.2
+export ANTHROPIC_API_KEY="..."             # → claude-sonnet-4.6
+export GEMINI_API_KEY="..."                # → gemini-3.0-flash
 ```
 
 ---

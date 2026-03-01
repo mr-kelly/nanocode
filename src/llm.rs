@@ -71,7 +71,7 @@ STRATEGY:
 OUTPUT: one tool call only. Nothing else. No markdown.
 ";
 
-const OPENROUTER_KEY: &str = "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";
+const OPENROUTER_KEY: &str = "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"
 
 fn openrouter_key() -> String {
     env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| OPENROUTER_KEY.to_string())
