@@ -17,12 +17,6 @@
 
 ---
 
-```
-prompt → LLM → run_cmd / write_file → observe → repeat
-```
-
----
-
 ## Install
 
 ```bash
