@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Result};
 use genai::{
+    adapter::AdapterKind,
     chat::{ChatMessage, ChatRequest, ChatStreamEvent},
     resolver::{AuthData, Endpoint},
-    Client, ServiceTarget,
+    Client, ModelIden, ServiceTarget,
 };
 use std::{env, io::Write, path::PathBuf};
 use crate::tools;
@@ -62,7 +63,7 @@ STRATEGY:
 OUTPUT: one tool call only. Nothing else. No markdown.
 ";
 
-const OPENROUTER_KEY: &str = "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";
+const OPENROUTER_KEY: &str = "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";
 
 fn openrouter_key() -> String {
     env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| OPENROUTER_KEY.to_string())
@@ -142,6 +143,8 @@ fn make_client() -> Client {
         .with_service_target_resolver_fn(move |mut st: ServiceTarget| {
             st.endpoint = Endpoint::from_owned("https://openrouter.ai/api/v1/");
             st.auth = AuthData::from_single(key.clone());
+            // Force OpenAI adapter so genai doesn't misroute unknown model names to Ollama
+            st.model = ModelIden::new(AdapterKind::OpenAI, st.model.model_name);
             Ok(st)
         })
         .build()
