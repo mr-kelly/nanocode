@@ -341,8 +341,8 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             files_changed = true;
             r
         } else if let Some(path) = extract_attr(&reply, "replace", "path") {
-            let old = extract_between(&reply, "<old>\n", "\n</old>").unwrap_or("");
-            let new = extract_between(&reply, "<new>\n", "\n</new>").unwrap_or("");
+            let old = extract_tag_content(&reply, "old").unwrap_or("");
+            let new = extract_tag_content(&reply, "new").unwrap_or("");
             eprintln!("  ⊕ replace in {}", path);
             let r = tools::replace(cwd, &path, old, new)?;
             log_cmd(cwd, &format!("replace in {}", path), &r);
@@ -486,8 +486,22 @@ fn extract_attr(s: &str, tag: &str, attr: &str) -> Option<String> {
 
 fn extract_between<'a>(s: &'a str, open: &str, close: &str) -> Option<&'a str> {
     let a = s.find(open)? + open.len();
-    // search for `close` starting from `a`
     let b = s[a..].find(close)?;
     Some(&s[a..a+b])
+}
+
+fn extract_tag_content<'a>(s: &'a str, tag: &str) -> Option<&'a str> {
+    let open = format!("<{}>", tag);
+    let close = format!("</{}>", tag);
+    let a = s.find(&open)? + open.len();
+    let b = s[a..].find(&close)?;
+    let mut content = &s[a..a+b];
+    if content.starts_with('\n') {
+        content = &content[1..];
+    }
+    if content.ends_with('\n') {
+        content = &content[..content.len()-1];
+    }
+    Some(content)
 }
 
