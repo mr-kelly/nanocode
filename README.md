@@ -69,6 +69,7 @@ freecode "check which port 8080 process is running and kill it"
 freecode "install nvm and set up Node 20"
 freecode "set up a Python virtualenv and install requirements.txt"
 freecode "configure nginx to reverse proxy localhost:3000"
+freecode "install openclaw from https://openclaw.ai"
 ```
 
 **File & data tasks**
