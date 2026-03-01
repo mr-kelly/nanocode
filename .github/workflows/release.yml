@@ -253,7 +253,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- Formula/freecode.rb; then
+          if git diff --quiet -- Formula/freecode.rb && git ls-files --error-unmatch Formula/freecode.rb 2>/dev/null; then
             echo "No formula changes; skipping."
             exit 0
           fi
