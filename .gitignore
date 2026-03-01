@@ -5,3 +5,4 @@
 bench/swe_bench/*.jsonl
 bench/swe_bench/inference.log
 logs/
+.freecode.log
