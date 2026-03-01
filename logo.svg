@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <rect width="120" height="120" rx="24" fill="#0f0f0f"/>
+  <!-- lightning bolt -->
+  <polygon points="68,12 44,62 62,62 52,108 76,58 58,58" fill="#facc15"/>
+  <!-- small code brackets -->
+  <text x="18" y="108" font-family="monospace" font-size="13" fill="#facc15" opacity="0.5">&lt;/&gt;</text>
+</svg>

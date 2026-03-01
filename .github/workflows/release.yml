@@ -40,20 +40,20 @@ jobs:
         include:
           - os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            artifact_name: nanocode
-            asset_name: nanocode-linux-x86_64
+            artifact_name: freecode
+            asset_name: freecode-linux-x86_64
           - os: ubuntu-20.04
             target: aarch64-unknown-linux-gnu
-            artifact_name: nanocode
-            asset_name: nanocode-linux-aarch64
+            artifact_name: freecode
+            asset_name: freecode-linux-aarch64
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: nanocode
-            asset_name: nanocode-macos-x86_64
+            artifact_name: freecode
+            asset_name: freecode-macos-x86_64
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: nanocode
-            asset_name: nanocode-macos-aarch64
+            artifact_name: freecode
+            asset_name: freecode-macos-aarch64
 
     steps:
       - uses: actions/checkout@v4
@@ -162,13 +162,13 @@ jobs:
             ### Homebrew (macOS/Linux)
             ```bash
             brew tap ${{ github.repository_owner }}/tap
-            brew install nanocode
+            brew install freecode
             ```
 
             ### Manual
             ```bash
-            tar xzf nanocode-*.tar.gz
-            sudo mv nanocode /usr/local/bin/
+            tar xzf freecode-*.tar.gz
+            sudo mv freecode /usr/local/bin/
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -192,10 +192,10 @@ jobs:
 
           curl -fsSL "$CHECKSUMS_URL" -o checksums.txt
 
-          LINUX_ARM_FILE="nanocode-linux-aarch64-${TAG}.tar.gz"
-          LINUX_X86_FILE="nanocode-linux-x86_64-${TAG}.tar.gz"
-          MACOS_ARM_FILE="nanocode-macos-aarch64-${TAG}.tar.gz"
-          MACOS_X86_FILE="nanocode-macos-x86_64-${TAG}.tar.gz"
+          LINUX_ARM_FILE="freecode-linux-aarch64-${TAG}.tar.gz"
+          LINUX_X86_FILE="freecode-linux-x86_64-${TAG}.tar.gz"
+          MACOS_ARM_FILE="freecode-macos-aarch64-${TAG}.tar.gz"
+          MACOS_X86_FILE="freecode-macos-x86_64-${TAG}.tar.gz"
 
           LINUX_ARM_SHA=$(awk -v f="$LINUX_ARM_FILE" '$2==f {print $1}' checksums.txt)
           LINUX_X86_SHA=$(awk -v f="$LINUX_X86_FILE" '$2==f {print $1}' checksums.txt)
@@ -208,56 +208,56 @@ jobs:
             fi
           done
 
-          cat > nanocode.rb <<EOF
-          class Nanocode < Formula
-            desc "Minimal autonomous coding agent"
-            homepage "https://github.com/${OWNER}/nanocode"
+          cat > freecode.rb <<EOF
+          class Freecode < Formula
+            desc "Minimal autonomous coding agent — auto-selects best free model via OpenRouter"
+            homepage "https://github.com/${OWNER}/freecode"
             version "${VERSION}"
             license "MIT"
 
             on_macos do
               if Hardware::CPU.arm?
-                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${MACOS_ARM_FILE}"
+                url "https://github.com/${OWNER}/freecode/releases/download/${TAG}/${MACOS_ARM_FILE}"
                 sha256 "${MACOS_ARM_SHA}"
               else
-                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${MACOS_X86_FILE}"
+                url "https://github.com/${OWNER}/freecode/releases/download/${TAG}/${MACOS_X86_FILE}"
                 sha256 "${MACOS_X86_SHA}"
               end
             end
 
             on_linux do
               if Hardware::CPU.arm?
-                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${LINUX_ARM_FILE}"
+                url "https://github.com/${OWNER}/freecode/releases/download/${TAG}/${LINUX_ARM_FILE}"
                 sha256 "${LINUX_ARM_SHA}"
               else
-                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${LINUX_X86_FILE}"
+                url "https://github.com/${OWNER}/freecode/releases/download/${TAG}/${LINUX_X86_FILE}"
                 sha256 "${LINUX_X86_SHA}"
               end
             end
 
             def install
-              bin.install "nanocode"
+              bin.install "freecode"
             end
 
             test do
-              assert_match "nanocode", shell_output("#{bin}/nanocode --version 2>&1", 1)
+              assert_match "freecode", shell_output("#{bin}/freecode --version 2>&1", 1)
             end
           end
           EOF
 
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/${OWNER}/homebrew-tap.git" tap-repo
           mkdir -p tap-repo/Formula
-          cp nanocode.rb tap-repo/Formula/nanocode.rb
+          cp freecode.rb tap-repo/Formula/freecode.rb
 
           cd tap-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- Formula/nanocode.rb; then
+          if git diff --quiet -- Formula/freecode.rb; then
             echo "No formula changes; skipping."
             exit 0
           fi
 
-          git add Formula/nanocode.rb
-          git commit -m "nanocode ${VERSION}"
+          git add Formula/freecode.rb
+          git commit -m "freecode ${VERSION}"
           git push origin HEAD:main

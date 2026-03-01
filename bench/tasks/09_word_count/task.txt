@@ -1,0 +1,1 @@
+Count how many total words are in input.txt and write just the number to count.txt.

@@ -22,10 +22,10 @@ jobs:
 
           curl -fsSL "$CHECKSUMS_URL" -o checksums.txt
 
-          LINUX_ARM_FILE="nanocode-linux-aarch64-${TAG}.tar.gz"
-          LINUX_X86_FILE="nanocode-linux-x86_64-${TAG}.tar.gz"
-          MACOS_ARM_FILE="nanocode-macos-aarch64-${TAG}.tar.gz"
-          MACOS_X86_FILE="nanocode-macos-x86_64-${TAG}.tar.gz"
+          LINUX_ARM_FILE="freecode-linux-aarch64-${TAG}.tar.gz"
+          LINUX_X86_FILE="freecode-linux-x86_64-${TAG}.tar.gz"
+          MACOS_ARM_FILE="freecode-macos-aarch64-${TAG}.tar.gz"
+          MACOS_X86_FILE="freecode-macos-x86_64-${TAG}.tar.gz"
 
           LINUX_ARM_SHA=$(awk -v f="$LINUX_ARM_FILE" '$2==f {print $1}' checksums.txt)
           LINUX_X86_SHA=$(awk -v f="$LINUX_X86_FILE" '$2==f {print $1}' checksums.txt)
@@ -33,39 +33,39 @@ jobs:
           MACOS_X86_SHA=$(awk -v f="$MACOS_X86_FILE" '$2==f {print $1}' checksums.txt)
 
           mkdir -p tap-work/Formula
-          cat > tap-work/Formula/nanocode.rb <<EOF
-          class Nanocode < Formula
-            desc "Minimal autonomous coding agent in Rust"
-            homepage "https://github.com/${OWNER}/nanocode"
+          cat > tap-work/Formula/freecode.rb <<EOF
+          class Freecode < Formula
+            desc "Minimal autonomous coding agent — auto-selects best free model via OpenRouter"
+            homepage "https://github.com/${OWNER}/freecode"
             version "${VERSION}"
             license "MIT"
 
             on_macos do
               if Hardware::CPU.arm?
-                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${MACOS_ARM_FILE}"
+                url "https://github.com/${OWNER}/freecode/releases/download/${TAG}/${MACOS_ARM_FILE}"
                 sha256 "${MACOS_ARM_SHA}"
               else
-                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${MACOS_X86_FILE}"
+                url "https://github.com/${OWNER}/freecode/releases/download/${TAG}/${MACOS_X86_FILE}"
                 sha256 "${MACOS_X86_SHA}"
               end
             end
 
             on_linux do
               if Hardware::CPU.arm?
-                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${LINUX_ARM_FILE}"
+                url "https://github.com/${OWNER}/freecode/releases/download/${TAG}/${LINUX_ARM_FILE}"
                 sha256 "${LINUX_ARM_SHA}"
               else
-                url "https://github.com/${OWNER}/nanocode/releases/download/${TAG}/${LINUX_X86_FILE}"
+                url "https://github.com/${OWNER}/freecode/releases/download/${TAG}/${LINUX_X86_FILE}"
                 sha256 "${LINUX_X86_SHA}"
               end
             end
 
             def install
-              bin.install "nanocode"
+              bin.install "freecode"
             end
 
             test do
-              assert_match "nanocode", shell_output("#{bin}/nanocode --version")
+              assert_match "freecode", shell_output("#{bin}/freecode --version")
             end
           end
           EOF
@@ -83,17 +83,17 @@ jobs:
 
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/${OWNER}/homebrew-tap.git" tap-repo
           mkdir -p tap-repo/Formula
-          cp tap-work/Formula/nanocode.rb tap-repo/Formula/nanocode.rb
+          cp tap-work/Formula/freecode.rb tap-repo/Formula/freecode.rb
 
           cd tap-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- Formula/nanocode.rb; then
+          if git diff --quiet -- Formula/freecode.rb; then
             echo "No changes detected"
             exit 0
           fi
 
-          git add Formula/nanocode.rb
-          git commit -m "nanocode ${VERSION}"
+          git add Formula/freecode.rb
+          git commit -m "freecode ${VERSION}"
           git push origin HEAD:main

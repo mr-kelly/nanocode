@@ -3,7 +3,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-NANOCODE="${NANOCODE:-$REPO_DIR/target/debug/nanocode}"
+FREECODE="${FREECODE:-$REPO_DIR/target/debug/freecode}"
 TASKS_DIR="$SCRIPT_DIR/tasks"
 PASS=0; FAIL=0; TOTAL=0
 
@@ -21,7 +21,7 @@ for task_dir in "$TASKS_DIR"/*/; do
     cd "$tmpdir"
 
     prompt=$(cat task.txt)
-    "$NANOCODE" "$prompt" 2>&1
+    "$FREECODE" "$prompt" 2>&1
 
     # Verify
     if python3 verify.py 2>&1; then

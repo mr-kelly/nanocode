@@ -1,0 +1,1 @@
+The file numbers.txt contains one integer per line. Sort them in ascending order and write the result to sorted.txt, one number per line.

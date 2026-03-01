@@ -1,8 +1,8 @@
 #!/bin/bash
 set -u
 
-# NANOCODE Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/mr-kelly/nanocode/main/install.sh | bash
+# FREECODE Installer
+# Usage: curl -fsSL https://raw.githubusercontent.com/mr-kelly/freecode/main/install.sh | bash
 
 abort() {
   printf "%s\n" "$@" >&2
@@ -13,50 +13,37 @@ if [ -z "${BASH_VERSION:-}" ]; then
   abort "Bash is required to interpret this script."
 fi
 
-# Check if script is run in POSIX mode
 if [[ -n "${POSIXLY_CORRECT+1}" ]]; then
   abort 'Bash must not run in POSIX mode. Please unset POSIXLY_CORRECT and try again.'
 fi
 
-REPO="${NANOCODE_REPO:-mr-kelly/nanocode}"
+REPO="${FREECODE_REPO:-mr-kelly/freecode}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
 case "$OS" in
-    Linux*)
-        OS_TYPE="linux"
-        ;;
-    Darwin*)
-        OS_TYPE="macos"
-        ;;
-    *)
-        abort "Unsupported OS: $OS"
-        ;;
+    Linux*)  OS_TYPE="linux" ;;
+    Darwin*) OS_TYPE="macos" ;;
+    *)       abort "Unsupported OS: $OS" ;;
 esac
 
 case "$ARCH" in
-    x86_64|amd64)
-        ARCH_TYPE="x86_64"
-        ;;
-    aarch64|arm64)
-        ARCH_TYPE="aarch64"
-        ;;
-    *)
-        abort "Unsupported architecture: $ARCH"
-        ;;
+    x86_64|amd64)    ARCH_TYPE="x86_64" ;;
+    aarch64|arm64)   ARCH_TYPE="aarch64" ;;
+    *)               abort "Unsupported architecture: $ARCH" ;;
 esac
 
-BINARY_NAME="nanocode-${OS_TYPE}-${ARCH_TYPE}"
-TARGET_BIN="${INSTALL_DIR}/nanocode"
+BINARY_NAME="freecode-${OS_TYPE}-${ARCH_TYPE}"
+TARGET_BIN="${INSTALL_DIR}/freecode"
 
-echo "Installing nanocode for ${OS_TYPE}-${ARCH_TYPE}..."
+echo "Installing freecode for ${OS_TYPE}-${ARCH_TYPE}..."
 
-EXISTING_NANOCODE="$(command -v nanocode 2>/dev/null || true)"
-if [ -n "$EXISTING_NANOCODE" ] && [ "$EXISTING_NANOCODE" != "$TARGET_BIN" ]; then
-    echo "⚠️  Existing 'nanocode' found at: $EXISTING_NANOCODE"
-    echo "    This installer will place nanocode at: $TARGET_BIN"
+EXISTING="$(command -v freecode 2>/dev/null || true)"
+if [ -n "$EXISTING" ] && [ "$EXISTING" != "$TARGET_BIN" ]; then
+    echo "⚠️  Existing 'freecode' found at: $EXISTING"
+    echo "    This installer will place freecode at: $TARGET_BIN"
     echo ""
 fi
 
@@ -97,36 +84,28 @@ TMP_DIR=$(mktemp -d)
 trap "rm -rf $TMP_DIR" EXIT
 
 cd "$TMP_DIR"
-curl -fsSL "$DOWNLOAD_URL" -o nanocode.tar.gz
-tar xzf nanocode.tar.gz
+curl -fsSL "$DOWNLOAD_URL" -o freecode.tar.gz
+tar xzf freecode.tar.gz
 
 mkdir -p "$INSTALL_DIR"
-mv nanocode "$TARGET_BIN"
+mv freecode "$TARGET_BIN"
 chmod +x "$TARGET_BIN"
 
 echo ""
-echo "✅ nanocode installed successfully to $TARGET_BIN"
+echo "✅ freecode installed successfully to $TARGET_BIN"
 echo ""
 
 if echo "$PATH" | grep -q "$INSTALL_DIR"; then
-    echo "You can now run: nanocode \"your task\""
+    echo "You can now run: freecode \"your task\""
 else
     echo "⚠️  Add $INSTALL_DIR to your PATH:"
     echo ""
     SHELL_NAME=$(basename "$SHELL" 2>/dev/null || echo "bash")
     case "$SHELL_NAME" in
-        zsh)
-            RC_FILE="$HOME/.zshrc"
-            ;;
-        bash)
-            RC_FILE="$HOME/.bashrc"
-            ;;
-        fish)
-            RC_FILE="$HOME/.config/fish/config.fish"
-            ;;
-        *)
-            RC_FILE="$HOME/.profile"
-            ;;
+        zsh)  RC_FILE="$HOME/.zshrc" ;;
+        bash) RC_FILE="$HOME/.bashrc" ;;
+        fish) RC_FILE="$HOME/.config/fish/config.fish" ;;
+        *)    RC_FILE="$HOME/.profile" ;;
     esac
 
     echo "    echo 'export PATH=\"\$PATH:$INSTALL_DIR\"' >> $RC_FILE"
@@ -135,13 +114,13 @@ else
     echo "Or run directly: $TARGET_BIN"
 fi
 
-ACTIVE_MANOCODE="$(command -v nanocode 2>/dev/null || true)"
-if [ -n "$ACTIVE_MANOCODE" ] && [ "$ACTIVE_MANOCODE" != "$TARGET_BIN" ]; then
+ACTIVE="$(command -v freecode 2>/dev/null || true)"
+if [ -n "$ACTIVE" ] && [ "$ACTIVE" != "$TARGET_BIN" ]; then
     echo ""
     echo "⚠️  PATH priority notice:"
-    echo "    'nanocode' currently resolves to: $ACTIVE_MANOCODE"
+    echo "    'freecode' currently resolves to: $ACTIVE"
     echo "    Newly installed binary is at: $TARGET_BIN"
-    echo "    Run 'which -a nanocode' and adjust PATH order if needed."
+    echo "    Run 'which -a freecode' and adjust PATH order if needed."
 fi
 
 echo ""

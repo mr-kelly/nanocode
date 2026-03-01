@@ -1,101 +1,140 @@
-# nanocode
+<p align="center">
+  <img src="logo.svg" width="96" height="96" alt="freecode logo"/>
+</p>
 
-A minimal autonomous coding agent in Rust. Give it a task, it figures out the rest using shell commands.
+<h1 align="center">freecode</h1>
+
+<p align="center">
+  A minimal autonomous coding agent in Rust.<br/>
+  <strong>~300 lines. $0. Free forever. Always picks the best free model automatically.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/mr-kelly/freecode/releases"><img src="https://img.shields.io/github/v/release/mr-kelly/freecode?color=facc15&labelColor=0f0f0f" alt="release"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-facc15?labelColor=0f0f0f" alt="license"/></a>
+  <img src="https://img.shields.io/badge/built_with-Rust-facc15?labelColor=0f0f0f" alt="rust"/>
+</p>
+
+---
 
 ```
 prompt → LLM → run_cmd / write_file → observe → repeat
 ```
 
+---
+
 ## Install
 
 ```bash
-# Quick install (Linux/macOS)
-curl -fsSL https://raw.githubusercontent.com/mr-kelly/nanocode/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/mr-kelly/freecode/main/install.sh | bash
 ```
 
 ```bash
-# Homebrew (macOS/Linux)
-brew tap mr-kelly/tap
-brew install nanocode
+brew tap mr-kelly/tap && brew install freecode   # Homebrew
 ```
-
-Or build from source:
 
 ```bash
-cargo install --path .
+cargo install --path .                           # from source
 ```
+
+---
 
 ## Usage
 
 ```bash
-nanocode "fix the failing tests in src/"
-nanocode "add a is_palindrome function to utils.py"
-nanocode "refactor main.rs to split the agent loop into its own module"
+freecode "fix the failing tests in src/"
+freecode "add is_palindrome to utils.py"
+freecode "refactor main.rs to split the agent loop into its own module"
 ```
-
-Or pipe JSON for programmatic use:
 
 ```bash
-echo '{"prompt": "fix the bug", "cwd": "./myproject"}' | nanocode
+# pipe JSON for programmatic use
+echo '{"prompt": "fix the bug", "cwd": "./myproject"}' | freecode
 ```
 
-## Providers
+---
 
-Set one API key and nanocode picks it up automatically:
+## How the free model works
+
+freecode has no hardcoded model. On every run, it fetches the **real-time popularity ranking** from OpenRouter and picks the #1 free model by weekly usage across all users.
+
+```
+startup
+  └─ GET openrouter.ai/api/frontend/models/find?order=top-weekly
+       └─ filter: pricing.prompt == "0"
+            └─ try #1 → 429/401? → try #2 → fail? → try #3 → ...
+```
+
+If the top model is rate-limited or down, it automatically falls back to #2, #3, and so on — no intervention needed.
 
 ```bash
-export OPENAI_API_KEY="..."       # uses gpt-5.2 by default
-export ANTHROPIC_API_KEY="..."    # uses claude-sonnet-4.6
-export GEMINI_API_KEY="..."       # uses gemini-3.0-flash
-export GROQ_API_KEY="..."
-export DEEPSEEK_API_KEY="..."
-export XAI_API_KEY="..."
+freecode --list-free   # see current ranking
 ```
 
-Override model or endpoint:
-
-```bash
-export OPENAI_MODEL=gpt-4.1
-export NANOCODE_MODEL=claude-opus-4
-export OPENAI_BASE_URL=https://my-proxy.example.com/v1
 ```
+#     MODEL
+------------------------------------------------------------
+1     arcee-ai/trinity-large-preview:free  ← selected
+2     stepfun/step-3.5-flash:free
+3     z-ai/glm-4.5-air:free
+4     nvidia/nemotron-3-nano-30b-a3b:free
+5     openai/gpt-oss-120b:free
+...
+```
+
+A built-in OpenRouter key is bundled — run with zero setup. Set `OPENROUTER_API_KEY` to use your own.
+
+---
 
 ## How it works
 
-- Up to 40 turns per task
-- Two tools: `run_cmd` (shell) and `write_file` (multi-line content)
-- Dangerous commands (`rm`, `sudo`, `git push`, etc.) require confirmation
-- Output truncated at 8000 bytes to keep context manageable
-- History compressed every 10 turns via LLM summarization
-- Git context auto-seeded at start (`git status`, `git diff --stat HEAD`)
-- All commands logged to `.nanocode.log`
+| | |
+|---|---|
+| **Turns** | Up to 40 per task |
+| **Tools** | `run_cmd` (shell) · `write_file` · `apply_patch` |
+| **Safety** | Dangerous commands (`rm`, `sudo`, `git push` …) require confirmation |
+| **Context** | Output truncated at 8 000 bytes · history compressed every 10 turns |
+| **Git** | Auto-seeds `git status` + `git diff` at start |
+| **Log** | All commands logged to `.freecode.log` |
+
+---
 
 ## Benchmark
 
-Tested on a custom 5-task suite (`bench/`) with `gemini-3-flash`:
+Tested with `arcee-ai/trinity-large-preview:free` (top free model on OpenRouter at time of writing):
 
-| Task | Description | Result |
-|------|-------------|--------|
-| 01_fizzbuzz | Write fizzbuzz function from scratch | ✅ PASS |
-| 02_bugfix | Find and fix off-by-one bug | ✅ PASS |
-| 03_refactor | Refactor messy code, preserve behavior | ✅ PASS |
-| 04_new_feature | Add `is_palindrome` to existing module | ✅ PASS |
-| 05_file_ops | Create JSON file + Python reader script | ✅ PASS |
+| # | Task | Description | Result |
+|---|------|-------------|--------|
+| 01 | count_files | Count files in dir, write to answer.txt | ✅ |
+| 02 | hello_world | Create hello.txt with exact content | ✅ |
+| 03 | fizzbuzz | Write fizzbuzz function from scratch | ✅ |
+| 04 | bugfix | Find and fix off-by-one bug | ✅ |
+| 05 | refactor | Refactor messy code, preserve behavior | ✅ |
+| 06 | new_feature | Add `is_palindrome` to existing module | ✅ |
+| 07 | file_ops | Create JSON file + Python reader script | ✅ |
+| 08 | sort_numbers | Sort numbers from file, write to sorted.txt | ✅ |
+| 09 | word_count | Count words in file, write to count.txt | ✅ |
+| 10 | rename_file | Rename a file | ✅ |
 
-**5/5 (100%)** with `gemini-3-flash` (free tier).
-
-Run it yourself:
+**10/10** with a free model. Run it yourself:
 
 ```bash
-OPENAI_MODEL=gemini-3-flash ./bench/run.sh
+./bench/run.sh
 ```
 
-## Simpler benchmarks to try
+---
 
-If you want a quick sanity check without Docker or harnesses:
+## Override model or provider
 
-- **HumanEval** — 164 Python function-completion tasks, just run `python evaluate.py`
-- **MBPP** — 374 crowd-sourced Python problems, similar format
-- **Our bench/** — the 5 tasks above, zero dependencies beyond Python 3
+```bash
+export FREECODE_MODEL=claude-opus-4          # any model
+export OPENAI_API_KEY="..."                  # gpt-5.2
+export ANTHROPIC_API_KEY="..."               # claude-sonnet-4.6
+export GEMINI_API_KEY="..."                  # gemini-3.0-flash
+```
 
-For serious leaderboard comparison, [Terminal-Bench 2.0](https://tbench.ai) via [Harbor](https://harborframework.com) is the standard (requires Docker).
+---
+
+<p align="center">
+  MIT License · <a href="https://openrouter.ai">openrouter.ai</a> · <a href="https://github.com/mr-kelly/freecode/issues">issues</a>
+</p>

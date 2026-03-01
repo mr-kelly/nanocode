@@ -1,0 +1,2 @@
+How many files are in the current directory (not subdirectories)?
+Write the answer as a single number into a file called answer.txt.

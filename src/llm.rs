@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Result};
 use genai::{
-    adapter::AdapterKind,
     chat::{ChatMessage, ChatRequest, ChatStreamEvent},
-    resolver::{AuthData, Endpoint, ServiceTargetResolver},
-    Client, ModelIden, ServiceTarget,
+    resolver::{AuthData, Endpoint},
+    Client, ServiceTarget,
 };
 use std::{env, io::Write, path::PathBuf};
 use crate::tools;
@@ -26,12 +25,12 @@ const DANGEROUS: &[&str] = &[
     "curl | sh", "wget | sh", "bash <(",
 ];
 
-const MAX_OUTPUT: usize = 8000; // truncate long command output
+const MAX_OUTPUT: usize = 8000;
 const MAX_TURNS:  usize = 40;
-const COMPRESS_AFTER: usize = 10; // compress history after N turns
+const COMPRESS_AFTER: usize = 10;
 
 const SYSTEM: &str = "\
-You are Nanocode — a fast, autonomous terminal agent.
+You are Freecode — a fast, autonomous terminal agent.
 
 TOOLS — output exactly one per turn, then wait for the result:
 
@@ -72,68 +71,155 @@ STRATEGY:
 OUTPUT: one tool call only. Nothing else. No markdown.
 ";
 
-pub fn resolve_model() -> Result<String> {
-    if let Ok(m) = env::var("NANOCODE_MODEL").or_else(|_| env::var("OPENAI_MODEL")) {
-        return Ok(m);
+const OPENROUTER_KEY: &str = "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";
+
+fn openrouter_key() -> String {
+    env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| OPENROUTER_KEY.to_string())
+}
+
+/// Fetch free models ordered by weekly popularity from OpenRouter.
+async fn fetch_free_models() -> Result<Vec<String>> {
+    let key = openrouter_key();
+    let body = tokio::task::spawn_blocking(move || -> Result<String> {
+        let out = std::process::Command::new("curl")
+            .args(["-fsSL", "-H", &format!("Authorization: Bearer {key}"),
+                   "https://openrouter.ai/api/frontend/models/find?order=top-weekly"])
+            .output()?;
+        if !out.status.success() {
+            return Err(anyhow!("curl failed: {}", String::from_utf8_lossy(&out.stderr)));
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    }).await??;
+
+    let v: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|e| anyhow!("OpenRouter JSON parse error: {e}"))?;
+
+    let models: Vec<String> = v["data"]["models"]
+        .as_array()
+        .ok_or_else(|| anyhow!("unexpected OpenRouter response shape"))?
+        .iter()
+        .filter_map(|m| {
+            let ep = m.get("endpoint")?;
+            let pricing = ep.get("pricing")?;
+            if pricing.get("prompt")?.as_str()? == "0" {
+                Some(format!("{}:free", m["slug"].as_str()?))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if models.is_empty() {
+        return Err(anyhow!("no free models found on OpenRouter"));
     }
-    for (key, model) in PROVIDERS {
-        if env::var(key).is_ok() { return Ok(model.to_string()); }
+    Ok(models)
+}
+
+pub async fn list_free_models() -> Result<()> {
+    eprintln!("🔍 Fetching free models from OpenRouter (by weekly popularity)...\n");
+    let models = fetch_free_models().await?;
+    println!("{:<4}  {}", "#", "MODEL");
+    println!("{}", "-".repeat(60));
+    for (i, id) in models.iter().enumerate() {
+        let marker = if i == 0 { " ← selected" } else { "" };
+        println!("{:<4}  {}{}", i + 1, id, marker);
     }
-    Err(anyhow!("No provider. Set one of: {}", PROVIDERS.iter().map(|(k,_)| *k).collect::<Vec<_>>().join(", ")))
+    println!("\nTotal: {} free models", models.len());
+    Ok(())
+}
+
+/// Returns ordered list of models to try (first = best).
+pub async fn resolve_models() -> Result<Vec<String>> {
+    if let Ok(m) = env::var("FREECODE_MODEL").or_else(|_| env::var("NANOCODE_MODEL")).or_else(|_| env::var("OPENAI_MODEL")) {
+        return Ok(vec![m]);
+    }
+    eprintln!("  🔍 Fetching free models from OpenRouter...");
+    match fetch_free_models().await {
+        Ok(ids) if !ids.is_empty() => {
+            eprintln!("  ✓ {} free models available, trying: {}", ids.len(), ids[0]);
+            return Ok(ids);
+        }
+        Ok(_) => eprintln!("  ⚠ No free models found"),
+        Err(e) => eprintln!("  ⚠ OpenRouter fetch failed: {e}"),
+    }
+    for (k, model) in PROVIDERS {
+        if env::var(k).is_ok() { return Ok(vec![model.to_string()]); }
+    }
+    Err(anyhow!("No provider configured. Set one of: {}", PROVIDERS.iter().map(|(k,_)| *k).collect::<Vec<_>>().join(", ")))
 }
 
 fn make_client() -> Client {
-    if let Ok(base_url) = env::var("OPENAI_BASE_URL") {
-        let resolver = ServiceTargetResolver::from_resolver_fn(
-            move |st: ServiceTarget| -> std::result::Result<ServiceTarget, genai::resolver::Error> {
-                Ok(ServiceTarget {
-                    endpoint: Endpoint::from_owned(format!("{}/", base_url.trim_end_matches('/'))),
-                    auth: AuthData::from_env("OPENAI_API_KEY"),
-                    model: ModelIden::new(AdapterKind::OpenAI, st.model.model_name),
-                })
-            },
-        );
-        Client::builder().with_service_target_resolver(resolver).build()
-    } else {
-        Client::default()
-    }
+    let base_url = "https://openrouter.ai/api/v1";
+    let key = openrouter_key();
+    Client::builder()
+        .with_service_target_resolver_fn(move |mut st: ServiceTarget| {
+            st.endpoint = Endpoint::from_owned(format!("{}/", base_url.trim_end_matches('/')));
+            st.auth = AuthData::from_single(key.clone());
+            Ok(st)
+        })
+        .build()
 }
 
 pub async fn run(cwd: &PathBuf, task: &str) -> Result<()> {
-    let model = resolve_model()?;
-    eprintln!("⚡ nanocode  model={model}  cwd={}", cwd.display());
-    eprintln!("   {task}\n");
-
+    let models = resolve_models().await?;
     let client = make_client();
 
-    // 2. Seed with git context
-    let git_ctx = tools::run_cmd(cwd, "git status --short 2>/dev/null; git diff --stat HEAD 2>/dev/null")
-        .unwrap_or_default();
+    let git_ctx = {
+        let looks_like_code_task = task.split_whitespace().count() > 3
+            || task.contains('.')  // file extension
+            || task.contains('/')  // path
+            || ["fix", "refactor", "add", "implement", "debug", "test", "build", "run"]
+                .iter().any(|w| task.to_lowercase().contains(w));
+        if looks_like_code_task {
+            tools::run_cmd(cwd, "git status --short 2>/dev/null; git diff --stat HEAD 2>/dev/null")
+                .unwrap_or_default()
+        } else {
+            String::new()
+        }
+    };
     let first_msg = if git_ctx.trim().is_empty() {
         task.to_string()
     } else {
         format!("{task}\n\n<git_context>\n{git_ctx}\n</git_context>")
     };
 
+    for (attempt, model) in models.iter().enumerate() {
+        eprintln!("⚡ freecode  model={model}  cwd={}", cwd.display());
+        if attempt == 0 { eprintln!("   {task}\n"); }
+
+        match run_with_model(cwd, task, &client, model, first_msg.clone()).await {
+            Ok(()) => return Ok(()),
+            Err(e) if models.len() > attempt + 1 && e.to_string().contains("401") => {
+                eprintln!("  ⚠ {model} failed (401), trying next model...");
+                continue;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
+}
+
+async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str, first_msg: String) -> Result<()> {
+
     let mut messages: Vec<ChatMessage> = vec![ChatMessage::user(first_msg)];
     let mut turn = 0usize;
     let mut files_changed = false;
+    let requires_file_change = ["fix", "refactor", "add", "implement", "create", "write", "edit", "update", "patch"]
+        .iter().any(|w| task.to_lowercase().contains(w));
 
     loop {
         if turn >= MAX_TURNS { eprintln!("(max turns reached)"); break; }
 
-        // 5. Compress history every COMPRESS_AFTER turns
         if turn > 0 && turn % COMPRESS_AFTER == 0 {
             messages = compress(&client, &model, &messages, task).await?;
         }
 
-        // 4. Streaming output
         let reply = stream_reply(&client, &model, &messages).await?;
 
         if reply.is_empty() { break; }
 
         if reply.contains("<done>") {
-            if !files_changed {
+            if requires_file_change && !files_changed {
                 messages.push(ChatMessage::assistant(&reply));
                 messages.push(ChatMessage::user(
                     "<result>You called <done> without making any file changes. \
@@ -214,7 +300,6 @@ pub async fn run(cwd: &PathBuf, task: &str) -> Result<()> {
     Ok(())
 }
 
-// Stream tokens silently to collect full reply, then parse and display cleanly
 async fn stream_reply(client: &Client, model: &str, messages: &[ChatMessage]) -> Result<String> {
     use futures::StreamExt;
     let req = ChatRequest::new(messages.to_vec()).with_system(SYSTEM);
@@ -238,7 +323,6 @@ async fn stream_reply(client: &Client, model: &str, messages: &[ChatMessage]) ->
         if let Ok(ChatStreamEvent::Chunk(chunk)) = event {
             full.push_str(&chunk.content);
             chars += chunk.content.len();
-            // Show a dot every ~50 chars so user knows it's alive
             if chars % 50 < chunk.content.len() {
                 eprint!(".");
                 std::io::stderr().flush()?;
@@ -250,7 +334,6 @@ async fn stream_reply(client: &Client, model: &str, messages: &[ChatMessage]) ->
     Ok(full.trim().to_string())
 }
 
-// 5. Compress old messages into a summary to save context
 async fn compress(client: &Client, model: &str, messages: &[ChatMessage], task: &str) -> Result<Vec<ChatMessage>> {
     let history = messages.iter().map(|m| format!("{:?}: {}", m.role, content_str(m))).collect::<Vec<_>>().join("\n");
     let summary_req = ChatRequest::new(vec![
@@ -277,14 +360,13 @@ fn content_str(m: &ChatMessage) -> String {
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max { return s.to_string(); }
     let cut = &s[..max];
-    // cut at last newline to avoid broken lines
     let end = cut.rfind('\n').unwrap_or(max);
     format!("{}\n[TRUNCATED — {} bytes omitted]", &s[..end], s.len() - end)
 }
 
 fn log_cmd(cwd: &PathBuf, cmd: &str, result: &str) {
     use std::fs::OpenOptions;
-    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(cwd.join(".nanocode.log")) {
+    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(cwd.join(".freecode.log")) {
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs()).unwrap_or(0);
@@ -305,3 +387,4 @@ fn extract_between<'a>(s: &'a str, open: &str, close: &str) -> Option<&'a str> {
     let b = s[a..].find(close)?;
     Some(&s[a..a+b])
 }
+

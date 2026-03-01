@@ -16,6 +16,15 @@ pub struct Input {
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+
+    if args.first().map(|s| s.as_str()) == Some("--list-free") {
+        if let Err(e) = llm::list_free_models().await {
+            eprintln!("✗ {e:#}");
+            std::process::exit(1);
+        }
+        return;
+    }
+
     let input = if !args.is_empty() {
         Input { cwd: None, prompt: args.join(" ") }
     } else if !atty::is(atty::Stream::Stdin) {
@@ -23,7 +32,7 @@ async fn main() {
         io::stdin().read_to_string(&mut buf).expect("read stdin");
         serde_json::from_str(&buf).unwrap_or_else(|_| Input { cwd: None, prompt: buf.trim().to_string() })
     } else {
-        eprintln!("Usage: nanocode \"your task\"");
+        eprintln!("Usage: freecode \"your task\"");
         std::process::exit(1);
     };
 

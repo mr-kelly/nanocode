@@ -1,8 +1,8 @@
-# AGENTS.md — nanocode SWE-bench Experiment Log
+# AGENTS.md — freecode SWE-bench Experiment Log
 
 ## Overview
 
-nanocode is a minimal Rust coding agent (~300 lines) with two tools: `run_cmd` (shell) and `write_file`/`apply_patch` (file edits). This document records the SWE-bench Lite evaluation experience, failure patterns, and iterative improvements.
+freecode is a minimal Rust coding agent (~300 lines) with two tools: `run_cmd` (shell) and `write_file`/`apply_patch` (file edits). This document records the SWE-bench Lite evaluation experience, failure patterns, and iterative improvements.
 
 ## SWE-bench Lite Results (68/300 attempted)
 
