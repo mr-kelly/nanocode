@@ -371,7 +371,7 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             r
         } else {
             eprintln!("{reply}");
-            break;
+            "ERROR: Unrecognized tool or format. Use <run_cmd>, <read_file>, <write_file>, or <replace>.".to_string()
         };
 
         let truncated = truncate(&result, MAX_OUTPUT);
