@@ -128,6 +128,10 @@ pub fn replace(cwd: &PathBuf, path: &str, old: &str, new: &str) -> Result<String
         return Ok("ERROR: <old> block is not unique. It appears multiple times in the file. Add more context lines to make it unique.".into());
     }
 
+    if new.is_empty() {
+        return Ok("ERROR: <new> block is empty. This will delete the <old> block. If you meant to delete it, please write an empty comment `# deleted` or similar instead of an empty block.".into());
+    }
+
     let new_content = content.replacen(old, new, 1);
     if content == new_content {
         return Ok(format!("ERROR: Replacement resulted in no changes to {}. The <new> block is identical to the <old> block.", path));
