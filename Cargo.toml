@@ -1,6 +1,6 @@
 [package]
 name = "freecode"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "A minimal coding agent — patch-first, embeddable, fast. Auto-selects the best free model via OpenRouter."
 
@@ -13,3 +13,4 @@ genai = "0.1"
 atty = "0.2"
 futures = "0.3.32"
 clap = { version = "4", features = ["derive"] }
+base64 = "0.22"
