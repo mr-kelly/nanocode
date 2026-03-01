@@ -11,7 +11,7 @@ const LOGO: &str = r#"
   ~300 lines · $0 · free forever
 "#;
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(
     name = "freecode",
     about = "Autonomous coding agent — always picks the best free model",
@@ -28,7 +28,7 @@ struct Cli {
     prompt: Vec<String>,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum Commands {
     /// List available free models ranked by weekly popularity
     ListFree,
@@ -75,5 +75,27 @@ async fn main() {
                 eprintln!("\n✗ {e:#}"); std::process::exit(1);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cli_list_free() {
+        let cli = Cli::try_parse_from(["freecode", "list-free"]).unwrap();
+        assert!(matches!(cli.command, Some(Commands::ListFree)));
+    }
+
+    #[test]
+    fn test_cli_prompt() {
+        let cli = Cli::try_parse_from(["freecode", "fix the bug"]).unwrap();
+        assert_eq!(cli.prompt, vec!["fix the bug"]);
+    }
+
+    #[test]
+    fn test_cli_version() {
+        Cli::try_parse_from(["freecode", "--version"]).unwrap_err(); // exits with version
     }
 }
