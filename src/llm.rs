@@ -461,9 +461,27 @@ fn content_str(m: &ChatMessage) -> String {
 
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max { return s.to_string(); }
-    let cut = &s[..max];
-    let end = cut.rfind('\n').unwrap_or(max);
-    format!("{}\n[TRUNCATED — {} bytes omitted]", &s[..end], s.len() - end)
+    let half = max / 2;
+    
+    let mut head_end = half;
+    while head_end > 0 && !s.is_char_boundary(head_end) {
+        head_end -= 1;
+    }
+    let mut head = &s[..head_end];
+    if let Some(pos) = head.rfind('\n') {
+        head = &head[..pos];
+    }
+
+    let mut tail_start = s.len() - half;
+    while tail_start < s.len() && !s.is_char_boundary(tail_start) {
+        tail_start += 1;
+    }
+    let mut tail = &s[tail_start..];
+    if let Some(pos) = tail.find('\n') {
+        tail = &tail[pos + 1..];
+    }
+
+    format!("{}\n\n[TRUNCATED — {} bytes omitted]\n\n{}", head, s.len() - head.len() - tail.len(), tail)
 }
 
 fn log_cmd(cwd: &PathBuf, cmd: &str, result: &str) {
@@ -496,10 +514,10 @@ fn extract_tag_content<'a>(s: &'a str, tag: &str) -> Option<&'a str> {
     let a = s.find(&open)? + open.len();
     let b = s[a..].find(&close)?;
     let mut content = &s[a..a+b];
-    if content.starts_with('\n') {
+    while content.starts_with('\n') {
         content = &content[1..];
     }
-    if content.ends_with('\n') {
+    while content.ends_with('\n') {
         content = &content[..content.len()-1];
     }
     Some(content)
