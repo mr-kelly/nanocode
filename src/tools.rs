@@ -68,7 +68,7 @@ pub fn write_file(cwd: &PathBuf, path: &str, content: &str) -> Result<String> {
         let lines = existing.lines().count();
         if lines > 300 {
             return Ok(format!(
-                "ERROR: {} has {} lines. Use apply_patch for targeted edits instead of rewriting the whole file.",
+                "ERROR: {} has {} lines. Use replace for targeted edits instead of rewriting the whole file.",
                 path, lines
             ));
         }
@@ -78,41 +78,65 @@ pub fn write_file(cwd: &PathBuf, path: &str, content: &str) -> Result<String> {
     Ok(format!("wrote {} ({} bytes)", path, content.len()))
 }
 
-pub fn apply_patch(cwd: &PathBuf, diff: &str) -> Result<String> {
-    let patch_path = cwd.join(format!(".nanocode_{}.diff",
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos()).unwrap_or(0)));
-    fs::write(&patch_path, diff)?;
+pub fn replace(cwd: &PathBuf, path: &str, old: &str, new: &str) -> Result<String> {
+    let full = cwd.join(path);
+    if !full.exists() {
+        return Ok(format!("ERROR: file {} does not exist", path));
+    }
+    let content = fs::read_to_string(&full)?;
 
-    // 1. Try git apply
-    let out = Command::new("git")
-        .args(["apply", "--whitespace=fix", patch_path.to_str().unwrap()])
-        .current_dir(cwd)
-        .output()?;
-
-    if out.status.success() {
-        let _ = fs::remove_file(&patch_path);
-        return Ok("(applied ok)".into());
+    if old.is_empty() {
+        return Ok("ERROR: <old> block cannot be empty".into());
     }
 
-    let git_err = format!("{}{}",
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    ).trim().to_string();
-
-    // 2. Try patch -p1
-    let out_p1 = Command::new("patch")
-        .args(["-p1", "-i", patch_path.to_str().unwrap()])
-        .current_dir(cwd)
-        .output();
-
-    if let Ok(o) = out_p1 {
-        if o.status.success() {
-             let _ = fs::remove_file(&patch_path);
-             return Ok("(applied with patch -p1)".into());
+    if !content.contains(old) {
+        // Try to find a fuzzy match by stripping leading/trailing whitespace
+        let old_lines: Vec<&str> = old.lines().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+        if old_lines.is_empty() {
+            return Ok("ERROR: old text not found in file".into());
         }
+        
+        // simple fuzzy search: check if all non-empty lines of `old` appear in the file in order
+        let file_lines: Vec<&str> = content.lines().collect();
+        let mut match_start = None;
+        for i in 0..file_lines.len() {
+            let mut matched = true;
+            for (j, old_line) in old_lines.iter().enumerate() {
+                if i + j >= file_lines.len() || !file_lines[i + j].trim().contains(old_line) {
+                    matched = false;
+                    break;
+                }
+            }
+            if matched {
+                match_start = Some(i);
+                break;
+            }
+        }
+
+        if let Some(start) = match_start {
+            let end = (start + old_lines.len() + 2).min(file_lines.len());
+            let start_context = start.saturating_sub(2);
+            let actual_text = file_lines[start_context..end].join("\n");
+            return Ok(format!("ERROR: exact old text not found in file. However, a similar block was found. Check your indentation and line breaks, they must match exactly.\n\nHere is the actual text from the file around that location:\n```\n{}\n```\n\nPlease use this exact text in your <old> block.", actual_text));
+        }
+
+        return Ok("ERROR: exact old text not found in file. Check your indentation and line breaks, they must match exactly.".into());
     }
 
-    let _ = fs::remove_file(&patch_path);
-    Ok(format!("patch failed: {}", git_err))
+    let count = content.matches(old).count();
+    if count > 1 {
+        return Ok("ERROR: <old> block is not unique. It appears multiple times in the file. Add more context lines to make it unique.".into());
+    }
+
+    let new_content = content.replacen(old, new, 1);
+    fs::write(&full, new_content)?;
+    Ok(format!("replaced exact match in {}", path))
+}
+pub fn read_file(cwd: &PathBuf, path: &str) -> Result<String> {
+    let full = cwd.join(path);
+    if !full.exists() {
+        return Ok(format!("ERROR: file {} does not exist", path));
+    }
+    let content = fs::read_to_string(&full)?;
+    Ok(content)
 }

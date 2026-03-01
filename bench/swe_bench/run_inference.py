@@ -10,7 +10,7 @@ Usage:
 import argparse, json, os, subprocess, sys, tempfile
 from pathlib import Path
 
-NANOCODE = str(Path(__file__).parent.parent.parent / "target" / "debug" / "freecode")
+NANOCODE = str(Path(__file__).parent.parent.parent / "target" / "release" / "freecode")
 
 def run_instance(instance: dict, tmpdir: str) -> dict | None:
     repo_url = f"https://github.com/{instance['repo']}.git"
@@ -35,14 +35,16 @@ def run_instance(instance: dict, tmpdir: str) -> dict | None:
         f"Instructions:\n"
         f"- Read the relevant source files with grep/sed to understand the code\n"
         f"- Search ALL occurrences of the pattern you're fixing (grep -rn) before patching\n"
-        f"- Apply the minimal fix using apply_patch (preferred) or write_file (new files only)\n"
+        f"- Apply the minimal fix using replace (preferred) or write_file (new files only)\n"
         f"- Do NOT install packages, run tests, or try to execute the code\n"
         f"- Do NOT use python3 -c with single-quoted strings (shell quoting issues)\n"
-        f"- For large existing files, you MUST use apply_patch, not write_file\n"
         f"- Make sure your fix covers ALL relevant locations, not just the first one found\n"
+        f"- For large existing files, you MUST use replace, not write_file\n"
         f"- When done, call <done>description of fix</done>"
     )
     env = {**os.environ, "NANOCODE_NO_CONFIRM": "1"}
+    if "OPENROUTER_API_KEY" in env:
+        del env["OPENROUTER_API_KEY"]
     subprocess.run([NANOCODE, prompt], cwd=repo_dir, env=env, timeout=900)
 
     # Capture diff

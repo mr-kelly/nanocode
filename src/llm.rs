@@ -29,23 +29,24 @@ TOOLS — output exactly one per turn, then wait for the result:
 <run_cmd cmd=\"ls -la\" />
   Run any single-line shell command. For exploration, builds, git, etc.
 
+<read_file path=\"path/to/file\" />
+  Read a file. Use this to understand code before editing.
 <write_file path=\"path/to/file\">
 content line 1
 content line 2
 </write_file>
-  Write a file with multi-line content. Always use this for file creation/editing.
+  Write a file with multi-line content. Always use this for file creation or complete rewrites.
   Never use shell heredocs or echo redirects for multi-line content.
 
-<apply_patch>
---- a/path/to/file
-+++ b/path/to/file
-@@ -1,4 +1,4 @@
- context
--old line
-+new line
- context
-</apply_patch>
-  Apply a unified diff patch. Prefer this over write_file for targeted edits to existing files.
+<replace path=\"path/to/file\">
+<old>
+  exact lines to replace
+</old>
+<new>
+  new lines
+</new>
+</replace>
+  Replace exact lines in a file. The <old> block must match the file exactly, including leading spaces. Prefer this over write_file.
 
 <done>summary</done>
   Signal task completion.
@@ -53,16 +54,91 @@ content line 2
 STRATEGY:
 1. Explore first (ls, cat, git status), then act.
 2. One tool per turn. Read output before next step.
-3. For large files, use grep/sed to read only relevant sections, not cat the whole file.
-4. Use apply_patch for targeted edits. Use write_file for new files or full rewrites.
+3. For large files, use `grep -rn 'pattern' .` or `rg -n 'pattern'` to find locations. DO NOT `cat` the whole file.
+4. Use replace for targeted edits (surgical changes). Use write_file ONLY for new files or when rewriting >50% of a file.
 5. Never use shell heredocs or echo redirects for multi-line content.
 6. If a command fails, diagnose and retry.
-7. When given a URL to install something, try `curl -fsSL <url>/install.sh | bash` first, or check `<url>/install.sh` for install instructions.
-8. IMPORTANT: You MUST make at least one file change (apply_patch or write_file) before calling <done>.
+7. When given a URL to install something, try `curl -fsSL <url>/install.sh | bash` first.
+8. IMPORTANT: You MUST make at least one file change (replace or write_file) before calling <done>.
 9. When done: <done>concise summary</done>
-
+10. Use 'read' (via cat/grep) to examine files before editing. You must know the exact content to patch it.
+11. When searching for symbols, prefer `rg -n 'symbol'` over find.
 OUTPUT: one tool call only. Nothing else. No markdown.
 ";
+const SUMMARIZATION_PROMPT: &str = "\
+The messages above are a conversation to summarize. Create a structured context checkpoint summary that another LLM will use to continue the work.
+
+Use this EXACT format:
+
+## Goal
+[What is the user trying to accomplish? Can be multiple items if the session covers different tasks.]
+
+## Constraints & Preferences
+- [Any constraints, preferences, or requirements mentioned by user]
+- [Or \"(none)\" if none were mentioned]
+
+## Progress
+### Done
+- [x] [Completed tasks/changes]
+
+### In Progress
+- [ ] [Current work]
+
+### Blocked
+- [Issues preventing progress, if any]
+
+## Key Decisions
+- **[Decision]**: [Brief rationale]
+
+## Next Steps
+1. [Ordered list of what should happen next]
+
+## Critical Context
+- [Any data, examples, or references needed to continue]
+- [Or \"(none)\" if not applicable]
+
+Keep each section concise. Preserve exact file paths, function names, and error messages.";
+
+const UPDATE_SUMMARIZATION_PROMPT: &str = "\
+The messages above are NEW conversation messages to incorporate into the existing summary provided in <previous-summary> tags.
+
+Update the existing structured summary with new information. RULES:
+- PRESERVE all existing information from the previous summary
+- ADD new progress, decisions, and context from the new messages
+- UPDATE the Progress section: move items from \"In Progress\" to \"Done\" when completed
+- UPDATE \"Next Steps\" based on what was accomplished
+- PRESERVE exact file paths, function names, and error messages
+- If something is no longer relevant, you may remove it
+
+Use this EXACT format:
+
+## Goal
+[Preserve existing goals, add new ones if the task expanded]
+
+## Constraints & Preferences
+- [Preserve existing, add new ones discovered]
+
+## Progress
+### Done
+- [x] [Include previously done items AND newly completed items]
+
+### In Progress
+- [ ] [Current work - update based on progress]
+
+### Blocked
+- [Current blockers - remove if resolved]
+
+## Key Decisions
+- **[Decision]**: [Brief rationale] (preserve all previous, add new)
+
+## Next Steps
+1. [Update based on current state]
+
+## Critical Context
+- [Preserve important context, add new if needed]
+
+Keep each section concise. Preserve exact file paths, function names, and error messages.";
+
 
 fn openrouter_key() -> String {
     env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| {
@@ -183,11 +259,13 @@ pub async fn run(cwd: &PathBuf, task: &str) -> Result<()> {
 
         match run_with_model(cwd, task, &client, model, first_msg.clone()).await {
             Ok(()) => return Ok(()),
-            Err(e) if models.len() > attempt + 1 && e.to_string().contains("401") => {
-                eprintln!("  ⚠ {model} failed (401), trying next model...");
-                continue;
+            Err(e) => {
+                if models.len() > attempt + 1 {
+                    eprintln!("  ⚠ {model} failed ({}), trying next model...", e);
+                    continue;
+                }
+                return Err(e);
             }
-            Err(e) => return Err(e),
         }
     }
     Ok(())
@@ -201,10 +279,7 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
     let requires_file_change = ["fix", "refactor", "add", "implement", "create", "write", "edit", "update", "patch"]
         .iter().any(|w| task.to_lowercase().contains(w));
 
-    eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
-    eprintln!("DEBUG: requires_file_change={}", requires_file_change);
-
-    eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
+eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
     eprintln!("DEBUG: requires_file_change={}", requires_file_change);
 
     loop {
@@ -223,8 +298,8 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
                 messages.push(ChatMessage::assistant(&reply));
                 messages.push(ChatMessage::user(
                     "<result>You called <done> without making any file changes. \
-                    You MUST apply a fix first. Use apply_patch for a targeted diff, \
-                    or if apply_patch keeps failing, use write_file to rewrite the specific function/section.</result>"
+                    You MUST apply a fix first. Use replace for a targeted edit, \
+                    or if replace keeps failing, use write_file to rewrite the specific function/section.</result>"
                 ));
                 turn += 1;
                 continue;
@@ -234,7 +309,12 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
             break;
         }
 
-        let result = if let Some(path) = extract_attr(&reply, "write_file", "path") {
+        let result = if let Some(path) = extract_attr(&reply, "read_file", "path") {
+            eprintln!("  📖 read_file {}", path);
+            let r = tools::read_file(cwd, &path)?;
+            log_cmd(cwd, &format!("read_file {}", path), &r);
+            r
+        } else if let Some(path) = extract_attr(&reply, "write_file", "path") {
             let content = extract_between(&reply, ">", "</write_file>")
                 .unwrap_or("")
                 .trim_start_matches('\n')
@@ -260,11 +340,12 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
             log_cmd(cwd, &label, &r);
             files_changed = true;
             r
-        } else if reply.contains("<apply_patch>") {
-            let diff = extract_between(&reply, "<apply_patch>", "</apply_patch>").unwrap_or("").to_string();
-            eprintln!("  ⊕ apply_patch");
-            let r = tools::apply_patch(cwd, &diff)?;
-            log_cmd(cwd, "apply_patch", &r);
+        } else if let Some(path) = extract_attr(&reply, "replace", "path") {
+            let old = extract_between(&reply, "<old>\n", "\n</old>").unwrap_or("");
+            let new = extract_between(&reply, "<new>\n", "\n</new>").unwrap_or("");
+            eprintln!("  ⊕ replace in {}", path);
+            let r = tools::replace(cwd, &path, old, new)?;
+            log_cmd(cwd, &format!("replace in {}", path), &r);
             files_changed = true;
             r
         } else if let Some(cmd) = extract_attr(&reply, "run_cmd", "cmd") {
@@ -322,13 +403,17 @@ async fn stream_reply(client: &Client, model: &str, messages: &[ChatMessage]) ->
     eprint!("  thinking");
     std::io::stderr().flush()?;
     while let Some(event) = stream.stream.next().await {
-        if let Ok(ChatStreamEvent::Chunk(chunk)) = event {
-            full.push_str(&chunk.content);
-            chars += chunk.content.len();
-            if chars % 50 < chunk.content.len() {
-                eprint!(".");
-                std::io::stderr().flush()?;
+        match event {
+            Ok(ChatStreamEvent::Chunk(chunk)) => {
+                full.push_str(&chunk.content);
+                chars += chunk.content.len();
+                if chars % 50 < chunk.content.len() {
+                    eprint!(".");
+                    std::io::stderr().flush()?;
+                }
             }
+            Err(e) => return Err(e.into()),
+            _ => {}
         }
     }
     eprint!("\r              \r");
@@ -337,14 +422,29 @@ async fn stream_reply(client: &Client, model: &str, messages: &[ChatMessage]) ->
 }
 
 async fn compress(client: &Client, model: &str, messages: &[ChatMessage], task: &str) -> Result<Vec<ChatMessage>> {
+    let mut prev_summary = String::new();
+    if let Some(first) = messages.first() {
+        let content = content_str(first);
+        if let Some(s) = extract_between(&content, "<session_summary>", "</session_summary>") {
+            prev_summary = s.trim().to_string();
+        }
+    }
+
     let history = messages.iter().map(|m| format!("{:?}: {}", m.role, content_str(m))).collect::<Vec<_>>().join("\n");
+
+    let prompt = if prev_summary.is_empty() {
+        format!("Original task: {task}\n\nHistory:\n{history}\n\n{SUMMARIZATION_PROMPT}")
+    } else {
+        format!("Original task: {task}\n\n<previous-summary>\n{prev_summary}\n</previous-summary>\n\nHistory:\n{history}\n\n{UPDATE_SUMMARIZATION_PROMPT}")
+    };
+
     let summary_req = ChatRequest::new(vec![
-        ChatMessage::user(format!(
-            "Summarize this agent session concisely for context. Original task: {task}\n\nHistory:\n{history}"
-        ))
+        ChatMessage::user(prompt)
     ]);
+
     let res = client.exec_chat(model, summary_req, None).await?;
     let summary = res.content_text_as_str().unwrap_or("(summary unavailable)").to_string();
+
     eprintln!("\n[context compressed]\n");
     Ok(vec![
         ChatMessage::user(format!("Original task: {task}\n\n<session_summary>\n{summary}\n</session_summary>\n\nContinue where you left off."))
@@ -386,6 +486,7 @@ fn extract_attr(s: &str, tag: &str, attr: &str) -> Option<String> {
 
 fn extract_between<'a>(s: &'a str, open: &str, close: &str) -> Option<&'a str> {
     let a = s.find(open)? + open.len();
+    // search for `close` starting from `a`
     let b = s[a..].find(close)?;
     Some(&s[a..a+b])
 }
