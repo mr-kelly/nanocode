@@ -35,6 +35,16 @@ EVERY response must start with a <think>...</think> block explaining your reason
 
 <read_outline path=\"path/to/file\" />
   Read the AST outline (classes and methods) of a Python file with line numbers. Use this to grasp the structure of large files quickly.
+
+<grep pattern=\"class Model\" path=\"src\" />
+  Search for a string or regex pattern in the directory. Path is optional (defaults to current dir). Truncates output if >100 matches.
+
+<find pattern=\"*.py\" />
+  Find files matching a pattern.
+
+<ls path=\"src\" />
+  List files in a directory.
+
 <write_file path=\"path/to/file\">
 content line 1
 content line 2
@@ -323,7 +333,24 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             break;
         }
 
-        let result = if let Some(path) = extract_attr(&reply, "read_file", "path") {
+        let result = if let Some(pattern) = extract_attr(&reply, "grep", "pattern") {
+            let path = extract_attr(&reply, "grep", "path");
+            eprintln!("  🔍 grep {} (in {:?})", pattern, path);
+            let r = tools::grep(cwd, &pattern, path.as_deref())?;
+            log_cmd(cwd, &format!("grep {} {:?}", pattern, path), &r);
+            r
+        } else if let Some(pattern) = extract_attr(&reply, "find", "pattern") {
+            eprintln!("  🔍 find {}", pattern);
+            let r = tools::find(cwd, &pattern)?;
+            log_cmd(cwd, &format!("find {}", pattern), &r);
+            r
+        } else if reply.contains("<ls ") || reply.contains("<ls/>") {
+            let path = extract_attr(&reply, "ls", "path");
+            eprintln!("  📁 ls {:?}", path);
+            let r = tools::ls(cwd, path.as_deref())?;
+            log_cmd(cwd, &format!("ls {:?}", path), &r);
+            r
+        } else if let Some(path) = extract_attr(&reply, "read_file", "path") {
             let start = extract_attr(&reply, "read_file", "start").and_then(|s| s.parse().ok());
             let end = extract_attr(&reply, "read_file", "end").and_then(|s| s.parse().ok());
             eprintln!("  📖 read_file {} (start={:?}, end={:?})", path, start, end);
@@ -396,7 +423,7 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             r
         } else {
             eprintln!("{reply}");
-            "ERROR: Unrecognized tool or format. Use <run_cmd>, <read_file>, <read_outline>, <write_file>, or <replace>.".to_string()
+            "ERROR: Unrecognized tool or format. Use <run_cmd>, <read_file>, <read_outline>, <grep>, <find>, <ls>, <write_file>, or <replace>.".to_string()
         };
 
         let truncated = truncate(&result, MAX_OUTPUT);

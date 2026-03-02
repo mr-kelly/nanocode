@@ -240,3 +240,68 @@ pub fn read_outline(cwd: &PathBuf, path: &str) -> Result<String> {
     }
     Ok(out)
 }
+
+pub fn grep(cwd: &PathBuf, pattern: &str, path: Option<&str>) -> Result<String> {
+    let target = path.unwrap_or(".");
+    let out = std::process::Command::new("rg")
+        .arg("-n")
+        .arg("--color=never")
+        .arg(pattern)
+        .arg(target)
+        .current_dir(cwd)
+        .output();
+        
+    if let Ok(o) = out {
+        if o.stdout.is_empty() {
+            return Ok("No matches found.".to_string());
+        }
+        let out_str = String::from_utf8_lossy(&o.stdout);
+        let mut lines: Vec<&str> = out_str.lines().collect();
+        if lines.len() > 100 {
+            lines.truncate(100);
+            return Ok(format!("Showing first 100 matches:\n\n{}\n... (truncated)", lines.join("\n")));
+        }
+        return Ok(out_str.to_string());
+    }
+    
+    // Fallback to grep if rg not available
+    let out = std::process::Command::new("grep")
+        .arg("-rn")
+        .arg(pattern)
+        .arg(target)
+        .current_dir(cwd)
+        .output()?;
+        
+    if out.stdout.is_empty() {
+        return Ok("No matches found.".to_string());
+    }
+    let out_str = String::from_utf8_lossy(&out.stdout);
+    let mut lines: Vec<&str> = out_str.lines().collect();
+    if lines.len() > 100 {
+        lines.truncate(100);
+        return Ok(format!("Showing first 100 matches:\n\n{}\n... (truncated)", lines.join("\n")));
+    }
+    Ok(out_str.to_string())
+}
+
+pub fn ls(cwd: &PathBuf, path: Option<&str>) -> Result<String> {
+    let target = path.unwrap_or(".");
+    let out = std::process::Command::new("ls")
+        .arg("-la")
+        .arg(target)
+        .current_dir(cwd)
+        .output()?;
+        
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
+pub fn find(cwd: &PathBuf, pattern: &str) -> Result<String> {
+    let out = std::process::Command::new("find")
+        .arg(".")
+        .arg("-name")
+        .arg(pattern)
+        .current_dir(cwd)
+        .output()?;
+        
+    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
