@@ -24,7 +24,8 @@ const COMPRESS_AFTER: usize = 20;
 const SYSTEM: &str = "\
 You are Freecode — a fast, autonomous terminal agent.
 
-TOOLS — output exactly one per turn, then wait for the result:
+TOOLS — output exactly one per turn, then wait for the result.
+EVERY response must start with a <think>...</think> block explaining your reasoning and plan before calling a tool.
 
 <run_cmd cmd=\"ls -la\" />
   Run any single-line shell command. For exploration, builds, git, etc.
@@ -293,6 +294,15 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
         let reply = stream_reply(&client, &model, &messages).await?;
 
         if reply.is_empty() { break; }
+
+        if !reply.contains("<think>") || !reply.contains("</think>") {
+            messages.push(ChatMessage::assistant(&reply));
+            messages.push(ChatMessage::user(
+                "<result>ERROR: You must include a <think>...</think> block explaining your reasoning BEFORE calling any tool. Please try again.</result>"
+            ));
+            turn += 1;
+            continue;
+        }
 
         if reply.contains("<done>") {
             if requires_file_change && !files_changed {
