@@ -363,9 +363,8 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             log_cmd(cwd, &format!("read_outline {}", path), &r);
             r
         } else if let Some(path) = extract_attr(&reply, "write_file", "path") {
-            let content = extract_between(&reply, ">", "</write_file>")
+            let content = extract_tag_content(&reply, "write_file")
                 .unwrap_or("")
-                .trim_start_matches('\n')
                 .to_string();
             let label = format!("write_file {path}");
             let dangerous = DANGEROUS.iter().any(|d| path.contains(d));
@@ -558,7 +557,7 @@ fn extract_between<'a>(s: &'a str, open: &str, close: &str) -> Option<&'a str> {
 }
 
 fn extract_tag_content<'a>(s: &'a str, tag: &str) -> Option<&'a str> {
-    let start_re = regex::Regex::new(&format!(r#"<{}\s*>"#, tag)).ok()?;
+    let start_re = regex::Regex::new(&format!(r#"<{} [^>]*>|<{}>"#, tag, tag)).ok()?;
     let end_re = regex::Regex::new(&format!(r#"</{}\s*>"#, tag)).ok()?;
     
     let start_match = start_re.find(s)?;
