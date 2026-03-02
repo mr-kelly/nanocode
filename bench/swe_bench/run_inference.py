@@ -21,6 +21,9 @@ def run_instance(instance: dict, tmpdir: str) -> dict | None:
     repo_dir = os.path.join(tmpdir, iid)
     print(f"\n{'='*60}\n{iid}", flush=True)
 
+    import shutil
+    shutil.rmtree(repo_dir, ignore_errors=True)
+
     # Clone and checkout base commit
     r = subprocess.run(["git", "clone", "--quiet", repo_url, repo_dir], capture_output=True)
     if r.returncode != 0:
@@ -33,13 +36,13 @@ def run_instance(instance: dict, tmpdir: str) -> dict | None:
         f"Fix the following GitHub issue by editing the source code directly.\n\n"
         f"Issue:\n{issue}\n\n"
         f"Instructions:\n"
-        f"- Read the relevant source files with grep/sed to understand the code\n"
+        f"- First, write a short reproduction script and run it with `python3` to see the bug.\n"
         f"- Search ALL occurrences of the pattern you're fixing (grep -rn) before patching\n"
-        f"- Apply the minimal fix using replace (preferred) or write_file (new files only)\n"
-        f"- Do NOT install packages, run tests, or try to execute the code\n"
-        f"- Do NOT use python3 -c with single-quoted strings (shell quoting issues)\n"
+        f"- Use `<read_outline path="...">` to see the structure of large files.\n"
+        f"- Apply the minimal fix using replace (preferred)\n"
+        f"- Run your reproduction script again to verify the fix works.\n"
+        f"- Do NOT install new pip packages, use what is available.\n"
         f"- Make sure your fix covers ALL relevant locations, not just the first one found\n"
-        f"- For large existing files, you MUST use replace, not write_file\n"
         f"- When done, call <done>description of fix</done>"
     )
     env = {**os.environ, "NANOCODE_NO_CONFIRM": "1"}
@@ -55,10 +58,14 @@ def run_instance(instance: dict, tmpdir: str) -> dict | None:
 
     if not diff.strip():
         print("  (no changes made)")
-        return {"instance_id": iid, "model_patch": "", "model_name_or_path": "nanocode"}
+        result = {"instance_id": iid, "model_patch": "", "model_name_or_path": "nanocode"}
+    else:
+        print(f"  patch: {len(diff)} bytes")
+        result = {"instance_id": iid, "model_patch": diff, "model_name_or_path": "nanocode"}
 
-    print(f"  patch: {len(diff)} bytes")
-    return {"instance_id": iid, "model_patch": diff, "model_name_or_path": "nanocode"}
+    import shutil
+    shutil.rmtree(repo_dir, ignore_errors=True)
+    return result
 
 
 def main():
