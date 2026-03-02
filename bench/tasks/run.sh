@@ -2,9 +2,9 @@
 # Usage: OPENAI_MODEL=gemini-3-flash ./bench/run.sh
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FREECODE="${FREECODE:-$REPO_DIR/target/debug/freecode}"
-TASKS_DIR="$SCRIPT_DIR/tasks"
+TASKS_DIR="$SCRIPT_DIR"
 PASS=0; FAIL=0; TOTAL=0
 
 for task_dir in "$TASKS_DIR"/*/; do
@@ -17,11 +17,11 @@ for task_dir in "$TASKS_DIR"/*/; do
 
     # Run nanocode in a temp copy of the task dir
     tmpdir=$(mktemp -d)
-    cp "$task_dir"/* "$tmpdir/" 2>/dev/null
+    cp -r "$task_dir"/. "$tmpdir/" 2>/dev/null
     cd "$tmpdir"
 
     prompt=$(cat task.txt)
-    "$FREECODE" "$prompt" 2>&1
+    env -u OPENROUTER_API_KEY "$FREECODE" "$prompt" 2>&1
 
     # Verify
     if python3 verify.py 2>&1; then
