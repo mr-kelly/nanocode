@@ -1,6 +1,6 @@
 [package]
 name = "freecode"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2021"
 description = "A minimal coding agent — patch-first, embeddable, fast. Auto-selects the best free model via OpenRouter."
 

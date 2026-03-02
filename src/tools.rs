@@ -198,11 +198,45 @@ Please fix the syntax and try again.", err.trim()));
 
     Ok(format!("replaced exact match in {}", path))
 }
-pub fn read_file(cwd: &PathBuf, path: &str) -> Result<String> {
+pub fn read_file(cwd: &PathBuf, path: &str, start_line: Option<usize>, end_line: Option<usize>) -> Result<String> {
     let full = cwd.join(path);
     if !full.exists() {
         return Ok(format!("ERROR: file {} does not exist", path));
     }
     let content = fs::read_to_string(&full)?;
-    Ok(content)
+    
+    let mut lines: Vec<&str> = content.lines().collect();
+    let total = lines.len();
+    
+    let s = start_line.unwrap_or(1).saturating_sub(1).min(total);
+    let e = end_line.unwrap_or(total).min(total);
+    
+    if s > e {
+        return Ok(format!("ERROR: start_line ({}) is greater than end_line ({})", s+1, e));
+    }
+    
+    let slice = lines[s..e].join("\n");
+    let msg = if start_line.is_some() || end_line.is_some() {
+        format!("Showing lines {} to {} of {} in {}:\n\n{}", s + 1, e, total, path, slice)
+    } else {
+        slice
+    };
+    Ok(msg)
+}
+
+pub fn read_outline(cwd: &PathBuf, path: &str) -> Result<String> {
+    let full = cwd.join(path);
+    if !full.exists() {
+        return Ok(format!("ERROR: file {} does not exist", path));
+    }
+    let content = fs::read_to_string(&full)?;
+    let mut out = String::new();
+    out.push_str(&format!("Outline for {}:\n\n", path));
+    for (i, line) in content.lines().enumerate() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("class ") || trimmed.starts_with("def ") || trimmed.starts_with("async def ") {
+            out.push_str(&format!("{:>4} | {}\n", i + 1, line));
+        }
+    }
+    Ok(out)
 }

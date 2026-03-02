@@ -30,8 +30,11 @@ EVERY response must start with a <think>...</think> block explaining your reason
 <run_cmd cmd=\"ls -la\" />
   Run any single-line shell command. For exploration, builds, git, etc.
 
-<read_file path=\"path/to/file\" />
-  Read a file. Use this to understand code before editing.
+<read_file path=\"path/to/file\" start=\"1\" end=\"100\" />
+  Read a specific line range of a file. Use this for large files. Omit start/end to read the whole file if small.
+
+<read_outline path=\"path/to/file\" />
+  Read the AST outline (classes and methods) of a Python file with line numbers. Use this to grasp the structure of large files quickly.
 <write_file path=\"path/to/file\">
 content line 1
 content line 2
@@ -57,7 +60,7 @@ STRATEGY:
 2. Verify: After patching the code, you MUST run the exact same script/test again. Do NOT call <done> until the test passes.
 3. Explore first (ls, cat, git status), then act.
 4. One tool per turn. Read output before next step.
-5. For large files, use `grep -rn 'pattern' .` or `rg -n 'pattern'` to find ALL locations. Don't assume there's only one.
+5. For large files, use `<read_outline>` to see the file structure first. Then use `<read_file>` with `start` and `end` lines to inspect specific methods without exceeding your context length. Also use `rg -n 'pattern'` to find all locations.
 6. Use replace for targeted edits (surgical changes). Use write_file ONLY for new files or when rewriting >50% of a file.
 7. Never use shell heredocs or echo redirects for multi-line content.
 8. IMPORTANT: You MUST make at least one file change (replace or write_file) before calling <done>.
@@ -321,9 +324,16 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
         }
 
         let result = if let Some(path) = extract_attr(&reply, "read_file", "path") {
-            eprintln!("  📖 read_file {}", path);
-            let r = tools::read_file(cwd, &path)?;
+            let start = extract_attr(&reply, "read_file", "start").and_then(|s| s.parse().ok());
+            let end = extract_attr(&reply, "read_file", "end").and_then(|s| s.parse().ok());
+            eprintln!("  📖 read_file {} (start={:?}, end={:?})", path, start, end);
+            let r = tools::read_file(cwd, &path, start, end)?;
             log_cmd(cwd, &format!("read_file {}", path), &r);
+            r
+        } else if let Some(path) = extract_attr(&reply, "read_outline", "path") {
+            eprintln!("  🌳 read_outline {}", path);
+            let r = tools::read_outline(cwd, &path)?;
+            log_cmd(cwd, &format!("read_outline {}", path), &r);
             r
         } else if let Some(path) = extract_attr(&reply, "write_file", "path") {
             let content = extract_between(&reply, ">", "</write_file>")
@@ -386,7 +396,7 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
             r
         } else {
             eprintln!("{reply}");
-            "ERROR: Unrecognized tool or format. Use <run_cmd>, <read_file>, <write_file>, or <replace>.".to_string()
+            "ERROR: Unrecognized tool or format. Use <run_cmd>, <read_file>, <read_outline>, <write_file>, or <replace>.".to_string()
         };
 
         let truncated = truncate(&result, MAX_OUTPUT);
