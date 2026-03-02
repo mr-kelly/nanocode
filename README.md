@@ -35,41 +35,21 @@ cargo install --path .                           # from source
 
 ## Usage
 
+**Quick setup & Server ops** — great on a fresh machine before installing anything else
 ```bash
-freecode "fix the failing tests in src/"
-freecode "add is_palindrome to utils.py"
-freecode "refactor main.rs to split the agent loop into its own module"
+freecode "install nvm and set up Node 20"
+freecode "configure nginx to reverse proxy localhost:3000"
+freecode "install openclaw from https://openclaw.ai"
+freecode "show me the top 10 processes by memory usage"
+freecode "find all log files larger than 100MB and show their paths"
 ```
 
-```bash
-# pipe JSON for programmatic use
-echo '{"prompt": "fix the bug", "cwd": "./myproject"}' | freecode
-```
-
----
-
-## Use cases
-
-**Coding tasks**
+**Coding tasks & Refactoring**
 ```bash
 freecode "fix the failing tests in src/"
 freecode "add pagination to the /users endpoint"
 freecode "find and fix the memory leak in worker.go"
-```
-
-**Server ops** — no need to remember exact commands
-```bash
-freecode "show me the top 10 processes by memory usage"
-freecode "find all log files larger than 100MB and show their paths"
-freecode "check which port 8080 process is running and kill it"
-```
-
-**Quick setup** — great on a fresh machine before installing anything else
-```bash
-freecode "install nvm and set up Node 20"
-freecode "set up a Python virtualenv and install requirements.txt"
-freecode "configure nginx to reverse proxy localhost:3000"
-freecode "install openclaw from https://openclaw.ai"
+freecode "refactor main.rs to split the agent loop into its own module"
 ```
 
 **File & data tasks**
@@ -77,6 +57,12 @@ freecode "install openclaw from https://openclaw.ai"
 freecode "convert all .png files in this folder to .jpg"
 freecode "parse access.log and show me the top 10 IPs by request count"
 freecode "rename all files to lowercase"
+```
+
+**Programmatic use**
+```bash
+# pipe JSON for programmatic execution
+echo '{"prompt": "fix the bug", "cwd": "./myproject"}' | freecode
 ```
 
 ---
