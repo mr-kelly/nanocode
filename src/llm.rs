@@ -52,18 +52,16 @@ content line 2
   Signal task completion.
 
 STRATEGY:
-1. Explore first (ls, cat, git status), then act.
-2. One tool per turn. Read output before next step.
-3. For large files, use `grep -rn 'pattern' .` or `rg -n 'pattern'` to find locations. DO NOT `cat` the whole file.
-4. Use replace for targeted edits (surgical changes). Use write_file ONLY for new files or when rewriting >50% of a file.
-5. Never use shell heredocs or echo redirects for multi-line content.
-6. If a command fails, diagnose and retry.
-7. When given a URL to install something, try `curl -fsSL <url>/install.sh | bash` first.
+1. TEST-DRIVEN FIXING: Before making any file changes, you MUST write a short python script or run existing tests (via `run_cmd` and `pytest`) to reproduce the exact issue described. 
+2. Verify: After patching the code, you MUST run the exact same script/test again. Do NOT call <done> until the test passes.
+3. Explore first (ls, cat, git status), then act.
+4. One tool per turn. Read output before next step.
+5. For large files, use `grep -rn 'pattern' .` or `rg -n 'pattern'` to find ALL locations. Don't assume there's only one.
+6. Use replace for targeted edits (surgical changes). Use write_file ONLY for new files or when rewriting >50% of a file.
+7. Never use shell heredocs or echo redirects for multi-line content.
 8. IMPORTANT: You MUST make at least one file change (replace or write_file) before calling <done>.
 9. When done: <done>concise summary</done>
 10. Use 'read' (via cat/grep) to examine files before editing. You must know the exact content to patch it.
-11. Before applying a fix, search for ALL occurrences of the pattern you're fixing (`grep -rn`). Make sure your patch covers all relevant locations.
-11. When searching for symbols, prefer `rg -n 'symbol'` over find.
 OUTPUT: one tool call only. Nothing else. No markdown.
 ";
 const SUMMARIZATION_PROMPT: &str = "\
@@ -277,8 +275,10 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
     let mut messages: Vec<ChatMessage> = vec![ChatMessage::user(first_msg)];
     let mut turn = 0usize;
     let mut files_changed = false;
-    let requires_file_change = ["fix", "refactor", "add", "implement", "create", "write", "edit", "update", "patch"]
-        .iter().any(|w| task.to_lowercase().contains(w));
+    let requires_file_change = std::env::var("FREECODE_REQUIRE_FILE_CHANGE").map(|v| v == "1").unwrap_or_else(|_| {
+        ["fix", "refactor", "add", "implement", "create", "write", "edit", "update", "patch"]
+            .iter().any(|w| task.to_lowercase().contains(w))
+    });
 
 eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
     eprintln!("DEBUG: requires_file_change={}", requires_file_change);
