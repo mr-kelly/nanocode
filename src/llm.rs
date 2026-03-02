@@ -546,7 +546,7 @@ fn log_cmd(cwd: &PathBuf, cmd: &str, result: &str) {
 }
 
 fn extract_attr(s: &str, tag: &str, attr: &str) -> Option<String> {
-    let re = regex::Regex::new(&format!(r#"<{} [^>]*?{}="([^"]*)""#, tag, attr)).ok()?;
+    let re = regex::Regex::new(&format!(r#"<{} [^>]*?{}=["']([^"']*)["']"#, tag, attr)).ok()?;
     re.captures(s).and_then(|cap| cap.get(1)).map(|m| m.as_str().to_string())
 }
 
