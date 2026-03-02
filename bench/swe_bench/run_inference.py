@@ -38,7 +38,7 @@ def run_instance(instance: dict, tmpdir: str) -> dict | None:
         f"Instructions:\n"
         f"- First, write a short reproduction script and run it with `python3` to see the bug.\n"
         f"- Search ALL occurrences of the pattern you're fixing (grep -rn) before patching\n"
-        f"- Use `<read_outline path="...">` to see the structure of large files.\n"
+        f"- Use `<read_outline path='...'>` to see the structure of large files.\n"
         f"- Apply the minimal fix using replace (preferred)\n"
         f"- Run your reproduction script again to verify the fix works.\n"
         f"- Do NOT install new pip packages, use what is available.\n"
