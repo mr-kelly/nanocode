@@ -62,6 +62,7 @@ STRATEGY:
 8. IMPORTANT: You MUST make at least one file change (replace or write_file) before calling <done>.
 9. When done: <done>concise summary</done>
 10. Use 'read' (via cat/grep) to examine files before editing. You must know the exact content to patch it.
+11. Before applying a fix, search for ALL occurrences of the pattern you're fixing (`grep -rn`). Make sure your patch covers all relevant locations.
 11. When searching for symbols, prefer `rg -n 'symbol'` over find.
 OUTPUT: one tool call only. Nothing else. No markdown.
 ";
@@ -499,11 +500,8 @@ fn log_cmd(cwd: &PathBuf, cmd: &str, result: &str) {
 }
 
 fn extract_attr(s: &str, tag: &str, attr: &str) -> Option<String> {
-    let pos = s.find(&format!("<{tag} "))?;
-    let rest = &s[pos..];
-    let a = rest.find(&format!("{attr}=\""))? + attr.len() + 2;
-    let b = rest[a..].find('"')?;
-    Some(rest[a..a+b].to_string())
+    let re = regex::Regex::new(&format!(r#"<{} [^>]*?{}="([^"]*)""#, tag, attr)).ok()?;
+    re.captures(s).and_then(|cap| cap.get(1)).map(|m| m.as_str().to_string())
 }
 
 fn extract_between<'a>(s: &'a str, open: &str, close: &str) -> Option<&'a str> {
@@ -513,11 +511,15 @@ fn extract_between<'a>(s: &'a str, open: &str, close: &str) -> Option<&'a str> {
 }
 
 fn extract_tag_content<'a>(s: &'a str, tag: &str) -> Option<&'a str> {
-    let open = format!("<{}>", tag);
-    let close = format!("</{}>", tag);
-    let a = s.find(&open)? + open.len();
-    let b = s[a..].find(&close)?;
-    let mut content = &s[a..a+b];
+    let start_re = regex::Regex::new(&format!(r#"<{}\s*>"#, tag)).ok()?;
+    let end_re = regex::Regex::new(&format!(r#"</{}\s*>"#, tag)).ok()?;
+    
+    let start_match = start_re.find(s)?;
+    let start_idx = start_match.end();
+    let end_match = end_re.find(&s[start_idx..])?;
+    let end_idx = start_idx + end_match.start();
+    
+    let mut content = &s[start_idx..end_idx];
     while content.starts_with('\n') {
         content = &content[1..];
     }
@@ -526,4 +528,3 @@ fn extract_tag_content<'a>(s: &'a str, tag: &str) -> Option<&'a str> {
     }
     Some(content)
 }
-

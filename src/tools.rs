@@ -66,7 +66,7 @@ pub fn write_file(cwd: &PathBuf, path: &str, content: &str) -> Result<String> {
     if full.exists() {
         let existing = fs::read_to_string(&full).unwrap_or_default();
         let lines = existing.lines().count();
-        if lines > 300 {
+        if lines > 100 {
             return Ok(format!(
                 "ERROR: {} has {} lines. Use replace for targeted edits instead of rewriting the whole file.",
                 path, lines
@@ -99,22 +99,38 @@ pub fn replace(cwd: &PathBuf, path: &str, old: &str, new: &str) -> Result<String
         // simple fuzzy search: check if all non-empty lines of `old` appear in the file in order
         let file_lines: Vec<&str> = content.lines().collect();
         let mut match_start = None;
+        let mut match_end = None;
+
         for i in 0..file_lines.len() {
-            let mut matched = true;
-            for (j, old_line) in old_lines.iter().enumerate() {
-                if i + j >= file_lines.len() || !file_lines[i + j].trim().contains(old_line) {
-                    matched = false;
+            let mut j = 0;
+            let mut k = i;
+            while j < old_lines.len() && k < file_lines.len() {
+                let f_line = file_lines[k].trim();
+                if f_line.is_empty() {
+                    k += 1;
+                    continue;
+                }
+                
+                // Compare by stripping all internal whitespace for robustness
+                let f_nospace: String = f_line.chars().filter(|c| !c.is_whitespace()).collect();
+                let o_nospace: String = old_lines[j].chars().filter(|c| !c.is_whitespace()).collect();
+
+                if f_nospace.contains(&o_nospace) || o_nospace.contains(&f_nospace) {
+                    j += 1;
+                    k += 1;
+                } else {
                     break;
                 }
             }
-            if matched {
+            if j == old_lines.len() {
                 match_start = Some(i);
+                match_end = Some(k);
                 break;
             }
         }
 
         if let Some(start) = match_start {
-            let end = (start + old_lines.len() + 2).min(file_lines.len());
+            let end = match_end.unwrap_or(start + old_lines.len()).saturating_add(2).min(file_lines.len());
             let start_context = start.saturating_sub(2);
             let actual_text = file_lines[start_context..end].join("\n");
             return Ok(format!("ERROR: exact old text not found in file. However, a similar block was found. Check your indentation and line breaks, they must match exactly.\n\nHere is the actual text from the file around that location:\n```\n{}\n```\n\nPlease use this exact text in your <old> block.", actual_text));
