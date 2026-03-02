@@ -154,11 +154,14 @@ Keep each section concise. Preserve exact file paths, function names, and error 
 
 
 fn openrouter_key() -> String {
-    env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| {
-        use base64::{Engine, engine::general_purpose::STANDARD};
-        let b64 = "c2stb3ItdjEtNmY2NTU2ZjJkZjczY2QwYTA4OTExN2FjY2IzN2U5YzU2ZTgyMDQ5ZjhiMzRkNTdmMmZhNDEyMzJmODJkNGQ0MQ==";
-        String::from_utf8(STANDARD.decode(b64).unwrap_or_default()).unwrap_or_default()
-    })
+    env::var("FREECODE_API_KEY")
+        .or_else(|_| env::var("OPENAI_API_KEY"))
+        .or_else(|_| env::var("OPENROUTER_API_KEY"))
+        .unwrap_or_else(|_| {
+            use base64::{Engine, engine::general_purpose::STANDARD};
+            let b64 = "c2stb3ItdjEtNmY2NTU2ZjJkZjczY2QwYTA4OTExN2FjY2IzN2U5YzU2ZTgyMDQ5ZjhiMzRkNTdmMmZhNDEyMzJmODJkNGQ0MQ==";
+            String::from_utf8(STANDARD.decode(b64).unwrap_or_default()).unwrap_or_default()
+        })
 }
 
 
@@ -232,9 +235,17 @@ pub async fn resolve_models() -> Result<Vec<String>> {
 
 fn make_client() -> Client {
     let key = openrouter_key();
+    let base_url = env::var("FREECODE_BASE_URL").unwrap_or_else(|_| "https://openrouter.ai/api/v1/".to_string());
+    
+    // Ensure the base url ends with a slash so genai appends `chat/completions` correctly
+    let mut base_url_clean = base_url.trim().to_string();
+    if !base_url_clean.ends_with('/') {
+        base_url_clean.push('/');
+    }
+
     Client::builder()
         .with_service_target_resolver_fn(move |mut st: ServiceTarget| {
-            st.endpoint = Endpoint::from_owned("https://openrouter.ai/api/v1/");
+            st.endpoint = Endpoint::from_owned(base_url_clean.clone());
             st.auth = AuthData::from_single(key.clone());
             // Force OpenAI adapter so genai doesn't misroute unknown model names to Ollama
             st.model = ModelIden::new(AdapterKind::OpenAI, st.model.model_name);
