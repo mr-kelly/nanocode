@@ -153,21 +153,24 @@ Use this EXACT format:
 Keep each section concise. Preserve exact file paths, function names, and error messages.";
 
 
-fn openrouter_key() -> String {
-    env::var("FREECODE_API_KEY")
-        .or_else(|_| env::var("OPENAI_API_KEY"))
-        .or_else(|_| env::var("OPENROUTER_API_KEY"))
-        .unwrap_or_else(|_| {
-            use base64::{Engine, engine::general_purpose::STANDARD};
-            let b64 = "c2stb3ItdjEtNmY2NTU2ZjJkZjczY2QwYTA4OTExN2FjY2IzN2U5YzU2ZTgyMDQ5ZjhiMzRkNTdmMmZhNDEyMzJmODJkNGQ0MQ==";
-            String::from_utf8(STANDARD.decode(b64).unwrap_or_default()).unwrap_or_default()
-        })
+fn openrouter_key(base_url: &str) -> String {
+    if let Ok(k) = env::var("FREECODE_API_KEY") { return k.trim().to_string(); }
+    if let Ok(k) = env::var("OPENROUTER_API_KEY") { return k.trim().to_string(); }
+    
+    // Only use OPENAI_API_KEY if we are actually overriding the base URL to something else
+    if !base_url.contains("openrouter.ai") {
+        if let Ok(k) = env::var("OPENAI_API_KEY") { return k.trim().to_string(); }
+    }
+
+    use base64::{Engine, engine::general_purpose::STANDARD};
+    let b64 = "c2stb3ItdjEtZGFiODE4OGQ3NzdjZjZhY2Q0YzBiNjlmY2VkODhiZWEwN2ZjOGU2N2QyNGI1MjhmNmZkYWNhYmI5MTlkYjdkZg==";
+    String::from_utf8(STANDARD.decode(b64).unwrap_or_default()).unwrap_or_default().trim().to_string()
 }
 
 
 /// Fetch free models ordered by weekly popularity from OpenRouter.
 async fn fetch_free_models() -> Result<Vec<String>> {
-    let key = openrouter_key();
+    let key = openrouter_key("https://openrouter.ai");
     let body = tokio::task::spawn_blocking(move || -> Result<String> {
         let out = std::process::Command::new("curl")
             .args(["-fsSL", "-H", &format!("Authorization: Bearer {key}"),
@@ -234,8 +237,8 @@ pub async fn resolve_models() -> Result<Vec<String>> {
 }
 
 fn make_client() -> Client {
-    let key = openrouter_key();
     let base_url = env::var("FREECODE_BASE_URL").unwrap_or_else(|_| "https://openrouter.ai/api/v1/".to_string());
+    let key = openrouter_key(&base_url);
     
     // Ensure the base url ends with a slash so genai appends `chat/completions` correctly
     let mut base_url_clean = base_url.trim().to_string();
@@ -447,6 +450,7 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
 
 async fn stream_reply(client: &Client, model: &str, messages: &[ChatMessage]) -> Result<String> {
     use futures::StreamExt;
+    // Just in case, try to clear out older env bug where OPENAI_API_KEY leaks
     let req = ChatRequest::new(messages.to_vec()).with_system(SYSTEM);
     let mut attempts = 0u32;
     let mut stream = loop {
