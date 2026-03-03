@@ -21,7 +21,7 @@ for task_dir in "$TASKS_DIR"/*/; do
     cd "$tmpdir"
 
     prompt=$(cat task.txt)
-    env FREECODE_REQUIRE_FILE_CHANGE=0 OPENROUTER_API_KEY=  "$FREECODE" "$prompt" 2>&1
+    env FREECODE_REQUIRE_FILE_CHANGE=0 "$FREECODE" "$prompt" 2>&1
 
     # Verify
     if python3 verify.py 2>&1; then

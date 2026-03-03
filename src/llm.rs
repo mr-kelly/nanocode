@@ -163,7 +163,7 @@ fn openrouter_key(base_url: &str) -> String {
     }
 
     use base64::{Engine, engine::general_purpose::STANDARD};
-    let b64 = "c2stb3ItdjEtZGFiODE4OGQ3NzdjZjZhY2Q0YzBiNjlmY2VkODhiZWEwN2ZjOGU2N2QyNGI1MjhmNmZkYWNhYmI5MTlkYjdkZg==";
+    let b64 = "c2stb3ItdjEtMWQ3YjRmODc3MjE5NzQ4NjZlMzlmMmNmYzg3ZWMzNTQwMDdjNjRhNGZiY2NjZjQ2ZTk2NDkzNGQ1NWNhNmU2Yw==";
     String::from_utf8(STANDARD.decode(b64).unwrap_or_default()).unwrap_or_default().trim().to_string()
 }
 
@@ -248,10 +248,16 @@ fn make_client() -> Client {
 
     Client::builder()
         .with_service_target_resolver_fn(move |mut st: ServiceTarget| {
+            if std::env::var("DEBUG").is_ok() {
+                eprintln!("DEBUG: Resolver called - original adapter: {:?}, model: {}", st.model.adapter_kind, st.model.model_name);
+            }
             st.endpoint = Endpoint::from_owned(base_url_clean.clone());
             st.auth = AuthData::from_single(key.clone());
             // Force OpenAI adapter so genai doesn't misroute unknown model names to Ollama
             st.model = ModelIden::new(AdapterKind::OpenAI, st.model.model_name);
+            if std::env::var("DEBUG").is_ok() {
+                eprintln!("DEBUG: Resolver set - adapter: {:?}, endpoint: {:?}", st.model.adapter_kind, st.endpoint);
+            }
             Ok(st)
         })
         .build()
@@ -308,8 +314,10 @@ async fn run_with_model(cwd: &PathBuf, task: &str, client: &Client, model: &str,
             .iter().any(|w| task.to_lowercase().contains(w))
     });
 
-eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
-    eprintln!("DEBUG: requires_file_change={}", requires_file_change);
+    if std::env::var("DEBUG").is_ok() {
+        eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
+        eprintln!("DEBUG: requires_file_change={}", requires_file_change);
+    }
 
     loop {
         if turn >= MAX_TURNS { eprintln!("(max turns reached)"); break; }
@@ -450,27 +458,50 @@ eprintln!("DEBUG: task='{}'", task.chars().take(50).collect::<String>());
 
 async fn stream_reply(client: &Client, model: &str, messages: &[ChatMessage]) -> Result<String> {
     use futures::StreamExt;
-    // Just in case, try to clear out older env bug where OPENAI_API_KEY leaks
+    
     let req = ChatRequest::new(messages.to_vec()).with_system(SYSTEM);
+    
+    if std::env::var("DEBUG").is_ok() {
+        eprintln!("DEBUG: Sending request with {} messages", messages.len());
+    }
+    
     let mut attempts = 0u32;
     let mut stream = loop {
         match client.exec_chat_stream(model, req.clone(), None).await {
-            Ok(s) => break s,
+            Ok(s) => {
+                if std::env::var("DEBUG").is_ok() {
+                    eprintln!("DEBUG: Stream opened successfully");
+                }
+                break s;
+            }
             Err(e) if attempts < 3 && e.to_string().contains("429") => {
                 eprintln!("  (rate limited, retrying in 10s...)");
                 tokio::time::sleep(std::time::Duration::from_secs(10)).await;
                 attempts += 1;
             }
-            Err(e) => return Err(e.into()),
+            Err(e) => {
+                if std::env::var("DEBUG").is_ok() {
+                    eprintln!("\nDEBUG: Stream error: {:#}", e);
+                }
+                return Err(e.into());
+            }
         }
     };
     let mut full = String::new();
     let mut chars = 0usize;
+    let mut event_count = 0usize;
     eprint!("  thinking");
     std::io::stderr().flush()?;
     while let Some(event) = stream.stream.next().await {
+        event_count += 1;
+        if std::env::var("DEBUG").is_ok() {
+            eprintln!("\nDEBUG: Event #{}: {:?}", event_count, event);
+        }
         match event {
             Ok(ChatStreamEvent::Chunk(chunk)) => {
+                if std::env::var("DEBUG").is_ok() {
+                    eprintln!("DEBUG: Chunk content length: {}, content: {:?}", chunk.content.len(), chunk.content.chars().take(50).collect::<String>());
+                }
                 full.push_str(&chunk.content);
                 chars += chunk.content.len();
                 if chars % 50 < chunk.content.len() {
@@ -478,12 +509,28 @@ async fn stream_reply(client: &Client, model: &str, messages: &[ChatMessage]) ->
                     std::io::stderr().flush()?;
                 }
             }
-            Err(e) => return Err(e.into()),
-            _ => {}
+            Err(e) => {
+                eprintln!("\nDEBUG: Stream error: {:#}", e);
+                return Err(e.into());
+            }
+            _ => {
+                if std::env::var("DEBUG").is_ok() {
+                    eprintln!("\nDEBUG: Other event type");
+                }
+            }
         }
+    }
+    if std::env::var("DEBUG").is_ok() {
+        eprintln!("\nDEBUG: Total events: {}", event_count);
     }
     eprint!("\r              \r");
     std::io::stderr().flush()?;
+    if std::env::var("DEBUG").is_ok() {
+        eprintln!("DEBUG: Received {} chars from stream", full.len());
+        if !full.is_empty() {
+            eprintln!("DEBUG: Full response:\n{}\n---", full);
+        }
+    }
     Ok(full.trim().to_string())
 }
 

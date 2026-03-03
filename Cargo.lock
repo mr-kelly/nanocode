@@ -343,7 +343,7 @@ dependencies = [
 
 [[package]]
 name = "freecode"
-version = "0.11.0"
+version = "0.11.2"
 dependencies = [
  "anyhow",
  "atty",
