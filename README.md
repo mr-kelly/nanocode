@@ -118,18 +118,26 @@ Tested with `arcee-ai/trinity-large-preview:free` (top free model on OpenRouter 
 
 | # | Task | Description | Result |
 |---|------|-------------|--------|
-| 01 | count_files | Count files in dir, write to answer.txt | ✅ |
-| 02 | hello_world | Create hello.txt with exact content | ✅ |
-| 03 | fizzbuzz | Write fizzbuzz function from scratch | ✅ |
-| 04 | bugfix | Find and fix off-by-one bug | ✅ |
+| 01 | count_files | Count files in dir, write to answer.txt | ❌ |
+| 02 | hello_world | Create hello.txt with exact content | ❌ |
+| 03 | fizzbuzz | Write fizzbuzz function from scratch | ❌ |
+| 04 | bugfix | Find and fix off-by-one bug | ❌ |
 | 05 | refactor | Refactor messy code, preserve behavior | ✅ |
-| 06 | new_feature | Add `is_palindrome` to existing module | ✅ |
-| 07 | file_ops | Create JSON file + Python reader script | ✅ |
-| 08 | sort_numbers | Sort numbers from file, write to sorted.txt | ✅ |
-| 09 | word_count | Count words in file, write to count.txt | ✅ |
-| 10 | rename_file | Rename a file | ✅ |
+| 06 | new_feature | Add `is_palindrome` to existing module | ❌ |
+| 07 | file_ops | Create JSON file + Python reader script | ❌ |
+| 08 | sort_numbers | Sort numbers from file, write to sorted.txt | ❌ |
+| 09 | word_count | Count words in file, write to count.txt | ❌ |
+| 10 | rename_file | Rename a file | ❌ |
 
-**10/10** with a free model. Run it yourself:
+**1/10** with current free model (as of March 2026). Free models have limited capability.
+
+**Note**: For better results, use a paid model by setting:
+```bash
+export OPENROUTER_API_KEY="your-key"
+export FREECODE_MODEL="anthropic/claude-3.5-sonnet"  # or other paid models
+```
+
+Run benchmark yourself:
 
 ```bash
 ./bench/run.sh
