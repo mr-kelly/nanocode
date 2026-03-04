@@ -191,8 +191,15 @@ async fn fetch_free_models() -> Result<Vec<String>> {
         .filter_map(|m| {
             let ep = m.get("endpoint")?;
             let pricing = ep.get("pricing")?;
+            let slug = m["slug"].as_str()?;
+            
+            // Exclude known image generation models
+            if slug.contains("flux") || slug.contains("stable-diffusion") || slug.contains("dall-e") {
+                return None;
+            }
+            
             if pricing.get("prompt")?.as_str()? == "0" {
-                Some(format!("{}:free", m["slug"].as_str()?))
+                Some(format!("{}:free", slug))
             } else {
                 None
             }
