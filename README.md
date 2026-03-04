@@ -114,7 +114,13 @@ A built-in OpenRouter key is bundled — run with zero setup. Set `OPENROUTER_AP
 
 ## Benchmark
 
-Tested with `arcee-ai/trinity-large-preview:free` (top free model on OpenRouter at time of writing):
+**Note**: The built-in OpenRouter API key has limited quota and may be rate-limited. For best results, set your own free OpenRouter API key:
+
+```bash
+export OPENROUTER_API_KEY="your-key-here"  # Get free key at https://openrouter.ai/keys
+```
+
+Tested with `arcee-ai/trinity-large-preview:free` (top free model on OpenRouter):
 
 | # | Task | Description | Result |
 |---|------|-------------|--------|
@@ -129,7 +135,7 @@ Tested with `arcee-ai/trinity-large-preview:free` (top free model on OpenRouter 
 | 09 | word_count | Count words in file, write to count.txt | ❌ |
 | 10 | rename_file | Rename a file | ✅ |
 
-**9/10** with current free model (as of March 2026).
+**9/10** with free models (March 2026).
 
 **Note**: For better results, use a paid model by setting:
 ```bash
